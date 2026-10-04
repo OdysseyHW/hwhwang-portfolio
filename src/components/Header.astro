@@ -588,8 +588,9 @@ const showContact = !site.contactIsSample && (Boolean(site.email) || site.social
     });
 
     // 뒤로가기 등으로 페이지가 캐시에서 복원될 때 메뉴가 열린 채 남지 않게
-    window.addEventListener('pageshow', () => {
-      if (state !== 'closed') close({ restoreFocus: false, immediate: true });
+    // (일반 첫 로드에도 pageshow가 발생하므로 캐시 복원(persisted)일 때만 — 로드가 끝나기 전에 연 메뉴를 닫지 않도록)
+    window.addEventListener('pageshow', (e) => {
+      if (e.persisted && state !== 'closed') close({ restoreFocus: false, immediate: true });
     });
   }
 </script>
