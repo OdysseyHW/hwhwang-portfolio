@@ -7,7 +7,10 @@ import samplePoster from '../content/projects/rpg-hud-character-ui/images/hud-fi
  * 영상 경로는 public/ 기준 (예: 'videos/showreel.mp4'). 배포 하위 경로(BASE_PATH)는 자동 반영된다.
  */
 export interface HeroInfo {
-  /** 대형 제목 — 배열 1칸이 1행. 한 행은 영문 기준 8~9자 이내를 권장 */
+  /**
+   * 대형 제목 — 배열 1칸이 1행. 한 행은 영문 기준 8~9자 이내를 권장.
+   * 글자를 크게 키웠을 때 긴 단어가 끊길 위치는 \u00AD(soft hyphen)로 지정한다. 화면에 들어가면 보이지 않는다.
+   */
   titleLines: string[];
   description: string;
   /** 데스크톱 배경 영상. 여러 형식은 목록으로 (앞에서부터 재생 시도: mp4 → webm 권장). 비우면 포스터만 표시 */
@@ -29,7 +32,7 @@ export interface HeroInfo {
 }
 
 export const hero: HeroInfo = {
-  titleLines: ['GAME UI', 'DESIGNED', 'FOR PLAY'], // 임시 헤드라인 (최종 문구 미정)
+  titleLines: ['GAME UI', 'DE\u00ADSIGNED', 'FOR PLAY'], // 임시 헤드라인 (최종 문구 미정). \u00AD = 필요할 때만 'DE-/SIGNED'로 끊음
   description: '플레이의 흐름을 만드는 게임 UI 디자이너.',
   // 임시: 기존 RPG HUD 샘플 영상 (최종 흑백 UI 모션 쇼릴로 교체 예정)
   videoDesktop: 'videos/rpg-hud-interaction.webm',

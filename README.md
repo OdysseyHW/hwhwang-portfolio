@@ -27,7 +27,7 @@ npm run check        # 타입·콘텐츠 스키마 검사
 ```bash
 npx playwright install chromium firefox webkit   # 최초 1회 (브라우저 약 1.2GB)
 npm run build
-npm run verify                                   # 3개 브라우저 × 14개 화면 너비 점검 (Chromium·Firefox 260개, WebKit 253개 항목)
+npm run verify                                   # 3개 브라우저 × 14개 화면 너비 점검 (Chromium·Firefox 269개, WebKit 262개 항목)
 BROWSERS=chromium SHOTS=1 npm run verify          # 크롬 계열만 + verify-report/에 스크린샷 저장
 npm run screenshots                              # 검토용 화면 캡처 → docs/screenshots/
 VERBOSE=1 npm run verify                         # 항목마다 바로 출력 (멈춘 위치 확인용)
@@ -88,7 +88,7 @@ scripts/screenshots.mjs         ← 검토용 화면 캡처 → docs/screenshots
 
 | 항목 | 설명 |
 | --- | --- |
-| `titleLines` | 대형 제목. 배열 1칸 = 1행 (현재 임시안 `GAME UI / DESIGNED / FOR PLAY`). 한 행은 영문 8~9자 이내를 권장합니다. 더 길면 글자 크기가 화면 폭에 맞춰 자동으로 작아집니다 |
+| `titleLines` | 대형 제목. 배열 1칸 = 1행 (현재 임시안 `GAME UI / DESIGNED / FOR PLAY`). 한 행은 영문 8~9자 이내를 권장합니다(기본 글자 크기에서 320px까지 한 줄 유지). 화면보다 길거나 사용자가 글자를 키우면 글자를 줄이지 않고 줄바꿈합니다. 긴 단어를 끊을 위치는 `\u00AD`(soft hyphen)로 지정합니다 (예: `'DE\u00ADSIGNED'` → 필요할 때만 `DE-` / `SIGNED`) |
 | `description` | 제목 아래 한 줄 소개 |
 | `videoDesktop` / `videoMobile` | 배경 영상 경로 (`public/` 기준). 여러 형식은 `['videos/reel.mp4', 'videos/reel.webm']`처럼 목록으로. 약 640px 미만에서는 `videoMobile`만, 그 이상에서는 `videoDesktop`만 받습니다. 둘 다 비우면 포스터만 표시하고 재생 버튼도 숨깁니다 |
 | `posterDesktop` / `posterMobile` | 영상 대신 먼저 보이는 이미지. `import`로 연결합니다 (파일 예시는 `hero.ts` 상단 참고) |

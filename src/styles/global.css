@@ -136,8 +136,10 @@ button {
 .skip-link {
   position: absolute;
   left: var(--space-4);
-  top: -100px;
+  top: var(--space-3);
   z-index: 100;
+  /* 링크 높이와 무관하게 화면 위로 완전히 숨김 (글자 확대 시 고정 px로 숨기면 끝이 보임) */
+  transform: translateY(calc(-100% - var(--space-4) - 1rem));
   padding: var(--space-3) var(--space-4);
   background: var(--color-inverse-bg);
   color: var(--color-inverse-text);
@@ -147,7 +149,7 @@ button {
 }
 
 .skip-link:focus {
-  top: var(--space-3);
+  transform: none;
 }
 
 .section {

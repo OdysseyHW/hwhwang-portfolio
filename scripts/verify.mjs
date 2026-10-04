@@ -368,7 +368,7 @@ for (const name of selected) {
       const a = await heroState(page);
       await page.waitForTimeout(1000);
       const b = await heroState(page);
-      const title = await page.$eval('#hero-title', (h) => h.textContent.replace(/\s+/g, ' ').trim());
+      const title = await page.$eval('#hero-title', (h) => h.textContent.replace(/\u00AD/g, '').replace(/\s+/g, ' ').trim()); // soft hyphen 제외
       check(name, `히어로 ${vp.label}: 제목이 HTML 텍스트`, title === 'GAME UI DESIGNED FOR PLAY', title);
       check(name, `히어로 ${vp.label}: muted·loop·playsinline`, a.muted && a.loop && a.playsinline, JSON.stringify(a));
       check(name, `히어로 ${vp.label}: 영상 파일 1개만 요청`, videoReqs.size <= 1, [...videoReqs].join(','));
@@ -492,20 +492,70 @@ for (const name of selected) {
     }
 
     // 7) 제목·소개·버튼·하단 줄이 겹치거나 잘리지 않음 (여러 너비, 가로 화면, 글자 200%)
+    // 히어로 요소(제목·소개·CTA·Scroll·SAMPLE·정지 버튼·헤더)가 서로 겹치지 않고 화면 폭·히어로 안에 있는지
     const overlap = (page) =>
       page.evaluate(() => {
-        const q = (s) => document.querySelector(s).getBoundingClientRect();
-        const els = { title: q('#hero-title'), desc: q('.hero__desc'), cta: q('.hero__cta'), bottom: q('.hero__bottom'), hero: q('[data-hero]') };
+        const vw = document.documentElement.clientWidth;
+        const sel = { header: '[data-site-header]', title: '#hero-title', desc: '.hero__desc', cta: '.hero__cta', scroll: '.hero__scroll', sample: '.hero__sample', toggle: '[data-hero-toggle]' };
+        const rects = {};
+        for (const [k, q] of Object.entries(sel)) {
+          const el = document.querySelector(q);
+          if (!el || getComputedStyle(el).display === 'none') continue;
+          const r = el.getBoundingClientRect();
+          if (r.width && r.height) rects[k] = r;
+        }
+        const hero = document.querySelector('[data-hero]').getBoundingClientRect();
         const issues = [];
-        if (els.desc.top < els.title.bottom - 1) issues.push('desc↔title');
-        if (els.cta.top < els.desc.bottom - 1) issues.push('cta↔desc');
-        if (els.bottom.top < els.cta.bottom - 1) issues.push('bottom↔cta');
-        if (els.bottom.bottom > els.hero.bottom + 1) issues.push('bottom 밖');
-        if (els.title.right > document.documentElement.clientWidth) issues.push('title 넘침');
-        const hdr = document.querySelector('[data-site-header]').getBoundingClientRect();
-        if (els.title.top < hdr.bottom) issues.push('title↔header');
+        const keys = Object.keys(rects);
+        for (let i = 0; i < keys.length; i++)
+          for (let j = i + 1; j < keys.length; j++) {
+            const a = rects[keys[i]], b = rects[keys[j]];
+            if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) issues.push(`${keys[i]}↔${keys[j]}`);
+          }
+        for (const k of keys) {
+          if (rects[k].right > vw + 1 || rects[k].left < -1) issues.push(`${k} 가로 넘침`);
+          if (k !== 'header' && (rects[k].bottom > hero.bottom + 1)) issues.push(`${k} 히어로 밖`);
+        }
         return issues;
       });
+    // R1) 글자 200%(html font-size) 설정 시 대형 제목이 실제로 커지는지 + 넘침 없이 소개·CTA·정지 버튼에 접근 가능한지
+    //     html 크기 변경은 브라우저 글자 크기 설정의 재현이며 실제 브라우저 확대 기능의 완전한 대체는 아니다.
+    for (const [w, h] of [[320, 568], [390, 844], [768, 1024], [1440, 900], [1920, 1080], [844, 390], [667, 375]]) {
+      const { ctx, page } = await newPage({ viewport: { width: w, height: h } });
+      await page.goto(u(), gotoOpts(name));
+      await page.evaluate(() => Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]));
+      const size = () => page.$eval('#hero-title', (t) => parseFloat(getComputedStyle(t).fontSize));
+      const lines = () => page.$eval('#hero-title', (t) => Math.round(t.getBoundingClientRect().height / (parseFloat(getComputedStyle(t).fontSize) * 0.95)));
+      const base = await size();
+      const baseLines = await lines();
+      await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
+      await page.waitForTimeout(150);
+      const zoomed = await size();
+      const ratio = zoomed / base;
+      const reach = await page.evaluate(() => {
+        const vw = document.documentElement.clientWidth;
+        const ids = ['#hero-title', '.hero__desc', '.hero__cta', '[data-hero-toggle]'];
+        return ids.filter((q) => { const r = document.querySelector(q).getBoundingClientRect(); return r.right > vw + 1 || r.width === 0; });
+      });
+      const ov = await overlap(page);
+      check(name, `R1 글자 200% ${w}×${h}: 제목 ${base.toFixed(1)}px → ${zoomed.toFixed(1)}px (×${ratio.toFixed(2)}), 기본 ${baseLines}행`, ratio >= 1.5 && baseLines === 3 && reach.length === 0 && ov.length === 0, `넘침: ${reach.join(",")} 겹침: ${ov.join(",")}`);
+      await ctx.close();
+    }
+
+    // R2) 낮은 가로 화면: 첫 화면(스크롤 없이)에서 정지 버튼 전체가 보이고 44px·다른 요소와 겹치지 않음
+    for (const [w, h] of [[844, 390], [667, 375]]) {
+      const { ctx, page } = await newPage({ viewport: { width: w, height: h }, hasTouch: name !== 'firefox' });
+      await page.goto(u(), gotoOpts(name));
+      await page.evaluate(() => Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]));
+      await page.waitForTimeout(150);
+      const r = await page.$eval('[data-hero-toggle]', (b) => { const x = b.getBoundingClientRect(); return { top: x.top, bottom: x.bottom, left: x.left, right: x.right, w: x.width, h: x.height, scrollY: window.scrollY }; });
+      const hdr = await page.$eval('[data-site-header]', (e) => e.getBoundingClientRect().bottom);
+      const ov = await overlap(page);
+      const visible = r.scrollY === 0 && r.top >= hdr - 1 && r.bottom <= h && r.left >= 0 && r.right <= w;
+      check(name, `R2 가로 ${w}×${h}: 첫 화면에 정지 버튼 전체 표시 (top ${r.top.toFixed(0)}·bottom ${r.bottom.toFixed(0)} / ${h})`, visible && r.w >= 44 && r.h >= 44 && ov.length === 0, `겹침: ${ov.join(",")}`);
+      await ctx.close();
+    }
+
     for (const [w, h, zoom] of [[320, 568], [390, 844], [768, 1024], [1024, 768], [1440, 900], [1920, 1080], [844, 390], [667, 375], [320, 568, true], [1280, 800, true]]) {
       const { ctx, page } = await newPage({ viewport: { width: w, height: h } });
       await page.goto(u(), gotoOpts(name));
