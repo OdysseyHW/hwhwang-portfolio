@@ -27,7 +27,7 @@ npm run check        # 타입·콘텐츠 스키마 검사
 ```bash
 npx playwright install chromium firefox webkit   # 최초 1회 (브라우저 약 1.2GB)
 npm run build
-npm run verify                                   # 3개 브라우저 × 14개 화면 너비 점검 (Chromium·Firefox 269개, WebKit 262개 항목)
+npm run verify                                   # 3개 브라우저 × 14개 화면 너비 점검 (Chromium·Firefox 309개, WebKit 302개 항목)
 BROWSERS=chromium SHOTS=1 npm run verify          # 크롬 계열만 + verify-report/에 스크린샷 저장
 npm run screenshots                              # 검토용 화면 캡처 → docs/screenshots/
 VERBOSE=1 npm run verify                         # 항목마다 바로 출력 (멈춘 위치 확인용)
@@ -88,7 +88,8 @@ scripts/screenshots.mjs         ← 검토용 화면 캡처 → docs/screenshots
 
 | 항목 | 설명 |
 | --- | --- |
-| `titleLines` | 대형 제목. 배열 1칸 = 1행 (현재 임시안 `GAME UI / DESIGNED / FOR PLAY`). 한 행은 영문 8~9자 이내를 권장합니다(기본 글자 크기에서 320px까지 한 줄 유지). 화면보다 길거나 사용자가 글자를 키우면 글자를 줄이지 않고 줄바꿈합니다. 긴 단어를 끊을 위치는 `\u00AD`(soft hyphen)로 지정합니다 (예: `'DE\u00ADSIGNED'` → 필요할 때만 `DE-` / `SIGNED`) |
+| `titleLines` | 대형 제목. 배열 1칸 = 1행 (현재 임시안 `GAME UI / DESIGNED / FOR PLAY`). 영문은 한 행 8~9자 이내 권장(기본 글자 크기에서 320px까지 한 줄 유지). 화면보다 길거나 사용자가 글자를 키우면 글자를 줄이지 않고 줄바꿈합니다. 줄마다 언어가 다르면 `{ text: '디자이너', lang: 'ko' }`처럼 씁니다 |
+| `titleLang` | 제목 기본 언어. 영문 `'en'`(기본값), 한글 `'ko'`. 줄바꿈 규칙·하이픈·화면 낭독기 발음에 쓰입니다. **문구 언어를 바꾸면 반드시 함께 바꿉니다** |
 | `description` | 제목 아래 한 줄 소개 |
 | `videoDesktop` / `videoMobile` | 배경 영상 경로 (`public/` 기준). 여러 형식은 `['videos/reel.mp4', 'videos/reel.webm']`처럼 목록으로. 약 640px 미만에서는 `videoMobile`만, 그 이상에서는 `videoDesktop`만 받습니다. 둘 다 비우면 포스터만 표시하고 재생 버튼도 숨깁니다 |
 | `posterDesktop` / `posterMobile` | 영상 대신 먼저 보이는 이미지. `import`로 연결합니다 (파일 예시는 `hero.ts` 상단 참고) |
@@ -96,6 +97,13 @@ scripts/screenshots.mjs         ← 검토용 화면 캡처 → docs/screenshots
 | `ctaLabel` / `ctaTarget` | 버튼 문구와 이동 위치 (기본 `#works`) |
 | `monochrome` | `true`면 히어로에서만 흑백 필터. 프로젝트 상세의 원본 색에는 영향 없음 |
 | `sampleLabel` | 임시 영상 표시(`SAMPLE VIDEO`). 실제 영상으로 바꾸면 `undefined`로 지웁니다 |
+
+**헤드라인 문구 교체 방법**
+- 영문: `titleLines: ['GAME UI', 'DESIGNED', 'FOR PLAY'], titleLang: 'en'` — 제목 글꼴 Zalando Sans Expanded로 표시됩니다.
+- 한글: `titleLines: ['플레이를', '설계하는', '디자이너'], titleLang: 'ko'` — Zalando Sans Expanded와 Google Sans에 한글이 없어 **시스템 한글 글꼴**(Apple SD Gothic Neo, Malgun Gothic 등)로 표시됩니다. 한글 줄은 줄 간격을 조금 넓히고 띄어쓰기 단위로 줄을 바꿉니다.
+- 혼합: `titleLines: ['GAME UI', { text: '인터페이스 디자이너', lang: 'ko' }], titleLang: 'en'`
+- **선택적 줄바꿈(soft hyphen):** 영문 긴 단어에 `\u00AD`를 넣으면, 글자를 키웠을 때만 그 위치에서 하이픈과 함께 끊깁니다 (현재 `'DE\u00ADSIG\u00ADNED'` → 필요할 때만 `DE-` / `SIG-` / `NED`). 화면에 들어가면 보이지 않습니다. 새 문구로 바꿀 때는 지금 위치를 그대로 옮기지 말고 새 단어의 음절에 맞게 다시 넣습니다. 넣지 않아도 넘치지는 않지만, 마지막 글자 하나만 다음 줄로 갈 수 있습니다. 한글에는 필요 없습니다.
+- 바꾼 뒤 `npm run verify`로 넘침·겹침을 확인합니다 (영문 짧음·긴 단어·한글·혼합 문구를 임시로 넣어 보는 검사가 포함되어 있습니다).
 
 **최종 영상 교체 순서**
 1. 영상 파일을 `public/videos/`에 넣습니다 (예: `showreel.mp4`, 모바일용 `showreel-mobile.mp4`).
@@ -109,7 +117,7 @@ scripts/screenshots.mjs         ← 검토용 화면 캡처 → docs/screenshots
 - 핵심 UI 디테일은 화면 비율에 따라 잘릴 수 있으므로 배경에 의존하지 말고 프로젝트 상세에 넣습니다
 - 포스터: 영상과 같은 비율의 이미지(데스크톱 1920×1080, 모바일 1080×1920), 흑백 필터와 검정 오버레이가 덧씌워집니다
 
-**동작 방식:** 무음·반복·인라인으로 자동 재생을 시도하고, 막히면 포스터를 유지합니다. 모션 줄이기·데이터 절약 설정에서는 영상을 받지 않습니다. 오른쪽 아래 버튼으로 언제든 재생·일시정지할 수 있고, 일시정지 상태는 다시 방문해도 유지됩니다(브라우저 저장소). 히어로가 화면 밖에 있거나 탭이 숨겨지면 멈춥니다.
+**동작 방식:** 무음·반복·인라인으로 자동 재생을 시도하고, 막히면 포스터를 유지합니다. 모션 줄이기·데이터 절약 설정에서는 영상을 받지 않습니다. 히어로 맨 위(헤더 바로 아래) 오른쪽의 버튼으로 언제든 재생·일시정지할 수 있고(글자를 키워도 첫 화면에 남도록 모든 화면에서 같은 위치), 일시정지 상태는 다시 방문해도 유지됩니다(브라우저 저장소). 히어로가 화면 밖에 있거나 탭이 숨겨지면 멈춥니다.
 
 ---
 

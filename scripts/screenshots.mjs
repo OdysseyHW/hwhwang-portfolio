@@ -32,7 +32,12 @@ const shots = [
   { name: 'home-mobile-landscape-844', path: '/', w: 844, h: 390, mobile: true },
   { name: 'home-mobile-landscape-667', path: '/', w: 667, h: 375, mobile: true },
   // 글자 크기 200% 설정 재현 (html font-size) — 실제 브라우저 확대 기능의 완전한 대체는 아님
-  { name: 'home-mobile-text200-390', path: '/', w: 390, h: 844, mobile: true, textZoom: true, fullPage: true },
+  { name: 'home-mobile-text200-390', path: '/', w: 390, h: 844, mobile: true, textZoom: true },
+  { name: 'home-mobile-text200-390-full', path: '/', w: 390, h: 844, mobile: true, textZoom: true, fullPage: true },
+  { name: 'home-mobile-landscape-844-text200', path: '/', w: 844, h: 390, mobile: true, textZoom: true },
+  // 헤드라인 교체 검증용 임시 데이터(한글) — 화면에서만 바꿔 넣음, 실제 콘텐츠 아님
+  { name: 'fixture-headline-ko-390', path: '/', w: 390, h: 844, mobile: true, fixture: { lang: 'ko', lines: ['플레이를', '설계하는', '게임 UI 디자이너'] } },
+  { name: 'fixture-headline-ko-1440', path: '/', w: 1440, h: 900, fixture: { lang: 'ko', lines: ['플레이를', '설계하는', '게임 UI 디자이너'] } },
   { name: 'home-desktop-text200-1440', path: '/', w: 1440, h: 900, textZoom: true },
   { name: 'home-works-mobile-390', path: '/', w: 390, h: 844, mobile: true, scrollTo: '#works' },
   { name: 'detail-desktop-1440', path: '/projects/rpg-hud-character-ui/', w: 1440, h: 900 },
@@ -52,6 +57,15 @@ for (const s of shots) {
   if (s.textZoom) {
     await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
     await page.waitForTimeout(300);
+  }
+  if (s.fixture) {
+    await page.evaluate(({ lines, lang }) => {
+      const h1 = document.querySelector('#hero-title');
+      const tpl = h1.querySelector('.hero__line').cloneNode(false);
+      h1.lang = lang;
+      h1.replaceChildren(...lines.flatMap((t, i) => { const sp = tpl.cloneNode(false); sp.textContent = t; return i ? [' ', sp] : [sp]; }));
+    }, s.fixture);
+    await page.waitForTimeout(200);
   }
   if (s.menu) {
     await page.click('[data-menu-toggle]');
