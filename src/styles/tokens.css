@@ -1,6 +1,7 @@
 /*
  * 디자인 토큰 — 색상·글꼴·여백·크기는 여기서만 바꾼다.
- * 블랙·화이트 컨셉(REQ-002): 별도 강조색 없이 흰색과 무채색 단계로만 위계를 만든다.
+ * 블랙·화이트 바탕(REQ-002) + 블루 키컬러(REQ-007, The Odyssey 포스터 인상의 낮은 채도 스틸/오션 블루).
+ * 블루는 핵심 동작과 강조에만 쓰고 페이지를 파란 면으로 덮지 않는다. 상태는 색만이 아니라 밑줄·외곽선으로도 표시한다.
  * 프로젝트 이미지·영상의 고유 색은 이 토큰과 무관하게 그대로 보인다.
  */
 :root {
@@ -14,12 +15,25 @@
   --color-border-strong: #666666;
   --color-text: #f5f5f5;
   --color-text-muted: #b3b3b3;
-  --color-inverse-bg: #f5f5f5; /* 주요 버튼: 흰 바탕 */
-  --color-inverse-text: #0a0a0a; /* 주요 버튼: 검정 글자 */
+  --color-inverse-bg: #f5f5f5; /* 흰 바탕 보조 요소: 본문 바로가기, 상세 영상 재생·확대 버튼 */
+  --color-inverse-text: #0a0a0a; /* 위 요소의 검정 글자 */
   --color-inverse-hover: #d6d6d6;
   --color-header-bg: #0a0a0a; /* 스크롤 후·상세 페이지 헤더: 불투명 검정 */
   --color-overlay: rgb(5 5 5 / 0.97);
-  --color-focus: #f5f5f5;
+  /*
+   * 블루 키컬러 (REQ-007) — 포스터를 보고 정한 근사값이며 영화 공식 색이 아니다.
+   *  accent          주요 버튼 바탕·장식 면 (흰 글자 5.03:1, 검정 배경과 경계 3.61:1)
+   *                  제안값 #2D5973은 검정 배경과의 경계가 2.63:1로 낮아 같은 계열에서 밝게 조정
+   *  accent-readable 검정 배경 위 작은 링크·라벨·포커스·기능성 선 (배경 7.81:1, 카드 표면 7.27:1)
+   *  accent-surface  어두운 블루 면 (흰 글자 14.45:1)
+   *  accent-hero     히어로 대형 제목의 강조 행 — 영상이 완전히 흰 프레임이어도 오버레이 위 3.36:1(큰 글자 기준 3:1 이상)
+   */
+  --color-accent: #3a6f8c;
+  --color-accent-hover: #2d5973;
+  --color-accent-readable: #78a9c6;
+  --color-accent-surface: #102532;
+  --color-accent-hero: #a7cbe1;
+  --color-focus: var(--color-accent-readable);
   --color-focus-gap: #0a0a0a; /* 흰 요소와 포커스 외곽선 사이의 어두운 간격 */
 
   /*

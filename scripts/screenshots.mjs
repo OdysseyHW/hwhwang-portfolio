@@ -52,6 +52,13 @@ const shots = [
   { name: 'home-works-mobile-390', path: '/', w: 390, h: 844, mobile: true, scrollTo: '#works' },
   { name: 'detail-desktop-1440', path: '/projects/rpg-hud-character-ui/', w: 1440, h: 900 },
   { name: 'detail-mobile-390', path: '/projects/rpg-hud-character-ui/', w: 390, h: 844, mobile: true },
+  // REQ-007 블루 키컬러 — hover·focus 상태
+  { name: 'state-cta-hover-1440', path: '/', w: 1440, h: 900, act: async (p) => { await p.hover('.hero__cta'); } },
+  { name: 'state-cta-focus-1440', path: '/', w: 1440, h: 900, act: async (p) => { await p.$eval('.hero__cta', (e) => /** @type {HTMLElement} */ (e).focus()); await p.keyboard.press('Shift'); } },
+  { name: 'state-card-hover-1440', path: '/', w: 1440, h: 900, scrollTo: '#works', act: async (p) => { await p.hover('.card >> nth=0'); } },
+  { name: 'state-menu-hover-1440', path: '/', w: 1440, h: 900, menu: true, act: async (p) => { await p.hover('[data-menu] .site-menu__link >> nth=1'); } },
+  { name: 'state-menu-focus-390', path: '/', w: 390, h: 844, mobile: true, menu: true, act: async (p) => { await p.keyboard.press('Shift'); } },
+  { name: 'state-detail-hover-1440', path: '/projects/rpg-hud-character-ui/', w: 1440, h: 900, act: async (p) => { await p.hover('.breadcrumb a'); } },
 ];
 
 const browser = await chromium.launch();
@@ -83,6 +90,10 @@ for (const s of shots) {
   if (s.menu) {
     await page.$eval('[data-menu-toggle]', (b) => /** @type {HTMLButtonElement} */ (b).click()); // 스크롤 없는 실제 클릭
     await page.waitForTimeout(900); // 전체 화면 메뉴 열림 전환 완료 후 캡처
+  }
+  if (s.act) {
+    await s.act(page);
+    await page.waitForTimeout(300);
   }
   await page.screenshot({ path: join(OUT, `${s.name}.jpg`), type: 'jpeg', quality: 72, fullPage: Boolean(s.fullPage) });
   await ctx.close();

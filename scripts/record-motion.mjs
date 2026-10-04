@@ -1,5 +1,6 @@
 // 입장·메뉴 모션 화면 녹화 → docs/recordings/*.webm  (`npm run build && npm run record`)
 // 정지 이미지로 판단하기 어려운 모션(입장 연출, 메뉴 열림/닫힘, SCROLL DOWN)을 5~10초 영상으로 남긴다.
+// scroll-loop-*: SCROLL DOWN 연속 루프가 3회(약 6.5초)를 넘어도 이어지는지 + 배경 모션 버튼으로 정지 (REQ-007)
 import { createServer } from 'node:http';
 import { readFile, stat, mkdir, rename, rm, readdir } from 'node:fs/promises';
 import { extname, join } from 'node:path';
@@ -9,7 +10,7 @@ const DIST = new URL('../dist/', import.meta.url).pathname.replace(/^\/([A-Za-z]
 const OUT = new URL('../docs/recordings/', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const TMP = join(OUT, '.tmp');
 const PORT = 4397;
-const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.png': 'image/png', '.webm': 'video/webm', '.woff2': 'font/woff2', '.ttf': 'font/ttf' };
+const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.png': 'image/png', '.webm': 'video/webm', '.mp4': 'video/mp4', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.woff2': 'font/woff2', '.ttf': 'font/ttf' };
 
 const server = createServer(async (req, res) => {
   let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
@@ -61,6 +62,35 @@ for (const s of scenes) {
   const path = await video.path();
   await rename(path, join(OUT, `${s.name}.webm`));
   console.log('saved', s.name);
+}
+
+// SCROLL DOWN 연속 루프 (REQ-007): 입장 연출 없이 약 9.5초 관찰(5회 이상) → 배경 모션 버튼으로 정지 → 정지 유지 확인
+for (const s of [
+  { name: 'scroll-loop-desktop-1440', w: 1440, h: 900, mobile: false },
+  { name: 'scroll-loop-mobile-390', w: 390, h: 844, mobile: true },
+]) {
+  const ctx = await browser.newContext({
+    viewport: { width: s.w, height: s.h },
+    isMobile: s.mobile,
+    hasTouch: s.mobile,
+    recordVideo: { dir: TMP, size: { width: s.w, height: s.h } },
+  });
+  await ctx.addInitScript(() => {
+    try {
+      sessionStorage.setItem('hw-intro-played', '1');
+    } catch {}
+  });
+  const page = await ctx.newPage();
+  await page.goto(`http://localhost:${PORT}/`);
+  await page.waitForTimeout(9500);
+  const iter = await page.evaluate(() => document.querySelector('.hero__scroll-dot').getAnimations()[0]?.effect.getComputedTiming().currentIteration);
+  await page.click('[data-hero-toggle]');
+  await page.waitForTimeout(2500);
+  const state = await page.evaluate(() => getComputedStyle(document.querySelector('.hero__scroll-dot')).animationPlayState);
+  const video = page.video();
+  await ctx.close();
+  await rename(await video.path(), join(OUT, `${s.name}.webm`));
+  console.log('saved', s.name, 'iteration before pause:', iter, 'after click:', state);
 }
 await browser.close();
 server.close();

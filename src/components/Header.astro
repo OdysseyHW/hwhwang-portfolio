@@ -174,10 +174,15 @@ const showContact = !site.contactIsSample && (Boolean(site.email) || site.social
     width: 10px;
   }
 
-  /* hover·focus: 길이가 정돈됨 */
+  /* hover·focus: 길이가 정돈되고 블루로 */
   .menu-btn:hover .menu-btn__lines span,
   .menu-btn:focus-visible .menu-btn__lines span {
     width: 26px;
+  }
+
+  .menu-btn:hover,
+  .menu-btn:focus-visible {
+    color: var(--color-accent-readable);
   }
 
   /* 닫기(X) 상태 */
@@ -347,9 +352,20 @@ const showContact = !site.contactIsSample && (Boolean(site.email) || site.social
     transition: text-decoration-color var(--duration) var(--ease);
   }
 
+  /* 기본 항목은 흰색, hover·focus 항목과 번호는 블루 + 밑줄 */
+  .site-menu__link:hover,
+  .site-menu__link:focus-visible {
+    color: var(--color-accent-readable);
+  }
+
   .site-menu__link:hover .site-menu__label,
   .site-menu__link:focus-visible .site-menu__label {
     text-decoration-color: currentColor;
+  }
+
+  .site-menu__link:hover .site-menu__num,
+  .site-menu__link:focus-visible .site-menu__num {
+    color: var(--color-accent-readable);
   }
 
   .site-menu__num {
