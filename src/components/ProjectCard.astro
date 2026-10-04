@@ -61,7 +61,7 @@ const { data } = project;
   }
 
   .card:hover {
-    border-color: var(--color-border-strong);
+    border-color: var(--color-text-muted);
   }
 
   /* 카드 전체를 하나의 링크 영역으로 (제목 링크를 카드 크기로 확장) */
@@ -86,7 +86,9 @@ const { data } = project;
   }
 
   .card:hover .card__title {
-    color: var(--color-accent);
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.18em;
   }
 
   .card__media {

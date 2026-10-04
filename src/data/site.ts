@@ -16,8 +16,6 @@ export interface ExperienceItem {
 export interface SiteInfo {
   name: string;
   jobTitle: string;
-  /** 메인 소개 영역의 짧은 소개 (1~2문장) */
-  intro: string;
   /** About 영역 소개 문단 */
   about: string[];
   /** 전문 분야 */
@@ -38,7 +36,6 @@ export interface SiteInfo {
 export const site: SiteInfo = {
   name: 'Your Name',
   jobTitle: 'Game UI Designer',
-  intro: '플레이어가 망설이지 않고 읽고, 고르고, 행동할 수 있는 게임 인터페이스를 설계합니다.',
   about: [
     '[소개 입력] 이 문단은 임시 문구입니다. 어떤 장르와 플랫폼의 UI를 주로 다뤄 왔는지, 디자인할 때 중요하게 여기는 기준이 무엇인지 2~4문장으로 적어 주세요.',
     '[소개 입력] 협업 방식(기획·클라이언트 개발과의 협업, 리소스 제작 범위, 엔진 적용 경험 등)을 적으면 채용 담당자가 역할을 빠르게 파악할 수 있습니다.',

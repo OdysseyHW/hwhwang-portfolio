@@ -84,17 +84,17 @@ const label = title ? `${title} 확대 보기` : `이미지 확대 보기: ${alt
     min-height: 32px;
     padding: 0 var(--space-3);
     border-radius: var(--radius-sm);
-    background: rgb(15 16 18 / 0.85);
+    background: rgb(10 10 10 / 0.85);
     color: var(--color-text);
     font-size: var(--text-sm);
-    font-weight: 600;
+    font-weight: var(--weight-ui);
     line-height: 1;
   }
 
   .zoom-figure__button:hover .zoom-figure__hint,
   .zoom-figure__button:focus-visible .zoom-figure__hint {
-    background: var(--color-accent);
-    color: var(--color-accent-ink);
+    background: var(--color-inverse-bg);
+    color: var(--color-inverse-text);
   }
 
   /* 작업물을 가리지 않도록: 마우스 환경은 올렸을 때·초점일 때만, 터치 환경은 작은 아이콘만 표시 */

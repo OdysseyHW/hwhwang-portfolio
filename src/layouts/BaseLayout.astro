@@ -11,9 +11,11 @@ interface Props {
   description?: string;
   type?: 'website' | 'article';
   noindex?: boolean;
+  /** 메인 히어로처럼 헤더를 첫 화면 위에 겹칠 때 */
+  overlayHeader?: boolean;
 }
 
-const { title, description = site.description, type = 'website', noindex = false } = Astro.props;
+const { title, description = site.description, type = 'website', noindex = false, overlayHeader = false } = Astro.props;
 const fullTitle = title ? `${title} | ${site.name}` : `${site.name} — ${site.jobTitle} Portfolio`;
 
 // SITE_URL이 설정된 경우에만 절대 주소(canonical, og:url, og:image)를 출력한다.
@@ -30,7 +32,7 @@ const ogImage = Astro.site ? new URL(withBase('og-default.png'), Astro.site).hre
     <meta name="description" content={description} />
     {noindex && <meta name="robots" content="noindex" />}
     {canonical && <link rel="canonical" href={canonical} />}
-    <meta name="theme-color" content="#0f1012" />
+    <meta name="theme-color" content="#0a0a0a" />
     <link rel="icon" href={withBase('favicon.svg')} type="image/svg+xml" />
     <link rel="apple-touch-icon" href={withBase('apple-touch-icon.png')} />
 
@@ -45,11 +47,12 @@ const ogImage = Astro.site ? new URL(withBase('og-default.png'), Astro.site).hre
     {ogImage && <meta property="og:image:height" content="630" />}
     <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
 
+    <slot name="head" />
     <script is:inline>document.documentElement.classList.add('js');</script>
   </head>
   <body>
     <a class="skip-link" href="#main">본문 바로가기</a>
-    <Header />
+    <Header overlay={overlayHeader} />
     <main id="main" tabindex="-1">
       <slot />
     </main>

@@ -27,11 +27,13 @@ npm run check        # 타입·콘텐츠 스키마 검사
 ```bash
 npx playwright install chromium firefox webkit   # 최초 1회 (브라우저 약 1.2GB)
 npm run build
-npm run verify                                   # 3개 브라우저 × 14개 화면 너비 점검 (브라우저당 214개 항목)
+npm run verify                                   # 3개 브라우저 × 14개 화면 너비 점검 (Chromium·Firefox 260개, WebKit 253개 항목)
 BROWSERS=chromium SHOTS=1 npm run verify          # 크롬 계열만 + verify-report/에 스크린샷 저장
+npm run screenshots                              # 검토용 화면 캡처 → docs/screenshots/
+VERBOSE=1 npm run verify                         # 항목마다 바로 출력 (멈춘 위치 확인용)
 ```
 
-점검 항목은 다음과 같습니다: 가로 넘침·잘림, 그리드 열 수, 글자만 200% 확대, 모바일 메뉴(열기·Esc·초점), 카드 → 상세 이동, 직접 접속, 404 응답, 확대 뷰어(확대·이동·맞춤·Esc·초점·스크롤 복원), 깨진 링크·이미지, 콘솔 오류, 제목 순서, 메타데이터, 200% 확대(640px).
+점검 항목은 다음과 같습니다: 가로 넘침·잘림, 그리드 열 수, 글자만 200% 확대, 히어로 영상(재생·정지 유지·화면 밖 정지·모션 줄이기·자동 재생 차단·파일 없음)과 배치, 모바일 메뉴(열기·Esc·초점), 카드 → 상세 이동, 직접 접속, 404 응답, 확대 뷰어(확대·이동·맞춤·Esc·초점·스크롤 복원), 깨진 링크·이미지, 콘솔 오류, 제목 순서, 메타데이터, 200% 확대(640px).
 
 ---
 
@@ -40,17 +42,21 @@ BROWSERS=chromium SHOTS=1 npm run verify          # 크롬 계열만 + verify-re
 ```
 src/
 ├─ data/site.ts                 ← 이름·소개·연락처 (사이트 공통 정보)
+├─ data/hero.ts                 ← 메인 히어로 제목·소개·배경 영상·포스터
 ├─ content/projects/<slug>/     ← 프로젝트 1개 = 폴더 1개
 │   ├─ index.yaml               ← 프로젝트 내용
 │   └─ images/                  ← 프로젝트 이미지
 ├─ content.config.ts            ← 프로젝트 데이터 형식(스키마)
 ├─ styles/tokens.css            ← 색상·글꼴·여백 등 디자인 토큰
 ├─ styles/global.css            ← 공통 스타일
+├─ styles/fonts.css             ← 자체 호스팅 글꼴(@font-face)
+├─ assets/fonts/                ← 글꼴 파일 (출처·라이선스: public/fonts/FONTS.md)
 ├─ components/                  ← 헤더·카드·확대 뷰어 등
 ├─ layouts/BaseLayout.astro     ← 공통 <head>(메타데이터)·헤더·푸터
 └─ pages/                       ← index(메인), projects/[slug](상세), 404
-public/                         ← 그대로 복사되는 파일 (파비콘, 공유 이미지, 영상)
+public/                         ← 그대로 복사되는 파일 (파비콘, 공유 이미지, 영상, 글꼴 라이선스)
 scripts/verify.mjs              ← 자동 점검 스크립트
+scripts/screenshots.mjs         ← 검토용 화면 캡처 → docs/screenshots/
 ```
 
 ---
@@ -63,7 +69,6 @@ scripts/verify.mjs              ← 자동 점검 스크립트
 | --- | --- |
 | `name` | 헤더 로고와 메인 제목에 쓰이는 이름 |
 | `jobTitle` | 직무 (기본값 `Game UI Designer`) |
-| `intro` | 메인 상단의 짧은 소개 (1~2문장) |
 | `about` | About 영역 문단 (배열 1칸 = 문단 1개) |
 | `skills` / `tools` | 전문 분야 / 사용 도구 |
 | `experience` | 경력. 빈 배열 `[]`이면 경력 블록이 숨겨집니다 |
@@ -76,6 +81,35 @@ scripts/verify.mjs              ← 자동 점검 스크립트
 이메일·링크·이력서가 모두 비어 있으면 Contact 영역과 "연락하기" 버튼도 함께 숨겨집니다. 이때는 헤더의 Contact 메뉴도 `src/components/Header.astro`의 `links`에서 지워 주세요.
 
 공유 이미지 `public/og-default.png`(1200×630)에도 이름이 들어 있으니 함께 교체하세요.
+
+### 메인 히어로 (첫 화면) 바꾸기
+
+`src/data/hero.ts`를 수정합니다.
+
+| 항목 | 설명 |
+| --- | --- |
+| `titleLines` | 대형 제목. 배열 1칸 = 1행 (현재 임시안 `GAME UI / DESIGNED / FOR PLAY`). 한 행은 영문 8~9자 이내를 권장합니다. 더 길면 글자 크기가 화면 폭에 맞춰 자동으로 작아집니다 |
+| `description` | 제목 아래 한 줄 소개 |
+| `videoDesktop` / `videoMobile` | 배경 영상 경로 (`public/` 기준). 여러 형식은 `['videos/reel.mp4', 'videos/reel.webm']`처럼 목록으로. 약 640px 미만에서는 `videoMobile`만, 그 이상에서는 `videoDesktop`만 받습니다. 둘 다 비우면 포스터만 표시하고 재생 버튼도 숨깁니다 |
+| `posterDesktop` / `posterMobile` | 영상 대신 먼저 보이는 이미지. `import`로 연결합니다 (파일 예시는 `hero.ts` 상단 참고) |
+| `focalPoint` / `focalPointMobile` | 화면 비율에 따라 잘릴 때의 중심 (예: `'50% 40%'`) |
+| `ctaLabel` / `ctaTarget` | 버튼 문구와 이동 위치 (기본 `#works`) |
+| `monochrome` | `true`면 히어로에서만 흑백 필터. 프로젝트 상세의 원본 색에는 영향 없음 |
+| `sampleLabel` | 임시 영상 표시(`SAMPLE VIDEO`). 실제 영상으로 바꾸면 `undefined`로 지웁니다 |
+
+**최종 영상 교체 순서**
+1. 영상 파일을 `public/videos/`에 넣습니다 (예: `showreel.mp4`, 모바일용 `showreel-mobile.mp4`).
+2. `hero.ts`의 `videoDesktop`·`videoMobile` 경로를 바꾸고, `sampleLabel`을 지웁니다.
+3. 영상 첫 장면과 비슷한 포스터 이미지를 `src/assets/` 등에 넣고 `posterDesktop`(필요하면 `posterMobile`)의 `import` 경로를 바꿉니다.
+
+**배경 영상 권장 규격**
+- 8~15초 길이의 자연스럽게 반복되는 루프, **소리 없음**, 빠른 섬광·과도한 움직임 없음
+- MP4(H.264)를 먼저, 필요하면 WebM 추가. 용량 목표: 데스크톱 약 6MB, 모바일 약 3MB 이내
+- 데스크톱 1920×1080(16:9), 모바일 1080×1920(9:16) 또는 데스크톱 파일 하나만 사용
+- 핵심 UI 디테일은 화면 비율에 따라 잘릴 수 있으므로 배경에 의존하지 말고 프로젝트 상세에 넣습니다
+- 포스터: 영상과 같은 비율의 이미지(데스크톱 1920×1080, 모바일 1080×1920), 흑백 필터와 검정 오버레이가 덧씌워집니다
+
+**동작 방식:** 무음·반복·인라인으로 자동 재생을 시도하고, 막히면 포스터를 유지합니다. 모션 줄이기·데이터 절약 설정에서는 영상을 받지 않습니다. 오른쪽 아래 버튼으로 언제든 재생·일시정지할 수 있고, 일시정지 상태는 다시 방문해도 유지됩니다(브라우저 저장소). 히어로가 화면 밖에 있거나 탭이 숨겨지면 멈춥니다.
 
 ---
 
@@ -159,12 +193,13 @@ sections:                             # 상세 본문 (위에서부터 순서대
 | 세부 확대 이미지 (`layout: detail`) | `projects/<slug>/images/` | 가로 1000~1600px. 작은 글자·아이콘이 보이도록 확대 캡처 |
 | 영상 | `public/videos/` | MP4(H.264) 권장 + 필요 시 WebM 추가, 10MB 이하·소리 없는 짧은 클립 권장. 큰 영상은 YouTube 사용 |
 | 영상 포스터 | `projects/<slug>/images/` | 영상과 같은 비율 |
+| 메인 히어로 배경 영상·포스터 | `public/videos/`, `src/data/hero.ts` | 위 "메인 히어로 바꾸기"의 권장 규격 참고 |
 | 공유 이미지 | `public/og-default.png` | 1200×630 PNG/JPG |
 | 파비콘 | `public/favicon.svg`, `public/apple-touch-icon.png` | SVG + 180×180 PNG |
 
 - **형식:** PNG(UI 캡처, 선명한 글자) 또는 JPG/WebP(배경 위주 화면). SVG도 가능합니다.
 - **자동 최적화:** PNG·JPG는 빌드할 때 화면 크기별 WebP(srcset)로 자동 변환됩니다. 확대 뷰어와 "원본 열기"는 원본 파일을 그대로 보여 줍니다. 원본은 너무 크지 않게(긴 변 4000px 이하) 넣어 주세요.
-- **로딩:** 첫 화면 이미지(메인 카드, 상세 대표 이미지)는 바로 불러오고, 그 아래 이미지는 지연 로딩합니다. 너비·높이는 자동으로 지정되어 로딩 중에 화면이 밀리지 않습니다.
+- **로딩:** 첫 화면 이미지(메인 히어로 포스터, 상세 대표 이미지)는 바로 불러오고, 그 아래 이미지는 지연 로딩합니다. 너비·높이는 자동으로 지정되어 로딩 중에 화면이 밀리지 않습니다.
 
 ---
 
@@ -172,18 +207,37 @@ sections:                             # 상세 본문 (위에서부터 순서대
 
 `src/styles/tokens.css`의 변수만 바꾸면 사이트 전체에 적용됩니다.
 
+현재 테마는 **블랙·화이트**입니다. 별도의 강조색 없이 흰색과 무채색 단계로 위계를 만듭니다.
+
 ```css
---color-bg: #0f1012;          /* 배경 */
---color-surface: #17181b;     /* 카드·패널 */
---color-text: #eceef1;        /* 본문 */
---color-text-muted: #a9adb5;  /* 보조 글자 */
---color-accent: #f2b84b;      /* 강조색 (한 가지만 사용) */
---color-accent-ink: #15130f;  /* 강조색 배경 위 글자 */
+--color-bg: #0a0a0a;             /* 배경 */
+--color-surface: #141414;        /* 카드·패널 */
+--color-surface-raised: #1c1c1c; /* 올라온 표면 */
+--color-text: #f5f5f5;           /* 본문 */
+--color-text-muted: #b3b3b3;     /* 보조 글자 */
+--color-border: #333333;         /* 테두리 */
+--color-border-strong: #666666;  /* 강한 테두리 */
+--color-inverse-bg: #f5f5f5;     /* 주요 버튼 바탕 (흰색) */
+--color-inverse-text: #0a0a0a;   /* 주요 버튼 글자 (검정) */
+--color-header-bg: #0a0a0a;          /* 헤더 (스크롤 후 불투명) */
 ```
 
-- 현재 조합의 명도 대비: 본문 16.4:1, 보조 글자 7.2:1 이상, 강조색 9.9:1 이상. 색을 바꾼 뒤에도 일반 텍스트 **4.5:1 이상**을 유지하세요.
-- `src/layouts/BaseLayout.astro`의 `theme-color`, `src/components/Header.astro`의 헤더 배경(`rgb(15 16 18 / 0.94)`)도 배경색에 맞춰 바꿔 주세요.
-- **폰트:** `--font-sans`를 수정합니다. 기본값은 외부 다운로드가 없는 시스템 폰트(맑은 고딕, Apple SD Gothic Neo 등)입니다. 웹폰트를 쓰려면 폰트 파일을 `public/fonts/`에 넣고 `global.css`에 `@font-face`를 추가하는 방식을 권장합니다.
+- 현재 명도 대비: 본문 18.2:1, 보조 글자 8.1:1 이상, 주요 버튼 18.2:1. 색을 바꾼 뒤에도 일반 텍스트 **4.5:1 이상**을 유지하세요.
+- 호버·선택은 밑줄과 테두리 밝기로, 포커스는 흰 외곽선과 그 안쪽의 어두운 간격으로 표시합니다 (흰 버튼·영상 위에서도 보이도록).
+- 배경색을 바꾸면 `src/layouts/BaseLayout.astro`의 `theme-color`도 맞춰 주세요.
+- 프로젝트 이미지·영상의 색은 테마와 상관없이 원본 그대로 보입니다. 흑백 필터는 메인 히어로 배경에만 적용됩니다.
+
+**글꼴** (출처·라이선스: [public/fonts/FONTS.md](public/fonts/FONTS.md))
+
+| 역할 | 글꼴 | 굵기 | 토큰 |
+| --- | --- | --- | --- |
+| 메뉴·본문·일반 제목 | Google Sans (자체 호스팅, 라틴 문자 subset) | 본문 400, 메뉴·버튼 500, 제목 700 | `--font-sans`, `--weight-*` |
+| 메인 히어로 대형 제목 | Zalando Sans Expanded (공식 파일 그대로) | 800 | `--font-display`, `--weight-display` |
+| 한글 | 두 글꼴 모두 한글이 없어 시스템 글꼴로 표시 (Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR) | — | `--font-sans` 뒤쪽 목록 |
+
+- 글꼴을 바꾸려면 파일을 `src/assets/fonts/`에 넣고 `src/styles/fonts.css`의 `@font-face`와 `tokens.css`의 `--font-sans`·`--font-display`를 수정합니다. 배포 경로는 자동으로 반영됩니다.
+- 글꼴을 불러오지 못해도 `font-display: swap`으로 시스템 글꼴이 먼저 보이므로 내용은 계속 읽을 수 있습니다.
+- Google Sans는 라틴 문자만 남긴 파일입니다. 다른 문자(예: 베트남어 성조)를 쓰려면 원본 배포본에서 범위를 넓혀 다시 만들어야 합니다 (FONTS.md 참고).
 - 여백(`--space-*`), 글자 크기(`--text-*`), 최대 폭(`--content-max`, 약 1280px), 읽기 폭(`--reading-max`, 65ch), 카드 비율(`--card-ratio`)도 같은 파일에 있습니다.
 
 ---
@@ -233,8 +287,9 @@ Netlify, Cloudflare Pages, Vercel 등에서는 빌드 명령 `npm run build`, �
   - `mobile-lobby-menu-ux`
   - `inventory-shop-ui` (선택 항목을 비운 예시, 긴 제목 확인용)
 - [ ] 샘플 이미지(`images/*.svg`) — 이 사이트용으로 직접 만든 도형 이미지이며 모서리에 `SAMPLE` 표시가 있습니다
-- [ ] `public/videos/rpg-hud-interaction.webm` — 샘플 영상 (샘플 프로젝트를 지우면 함께 삭제)
-- [ ] `public/og-default.png` — 공유 이미지에 "Your Name"이 들어 있습니다
+- [ ] `src/data/hero.ts` — 임시 헤드라인(`GAME UI / DESIGNED / FOR PLAY`)·소개 문구, 임시 배경 영상과 포스터(RPG 샘플 재사용), `sampleLabel: 'SAMPLE VIDEO'`
+- [ ] `public/videos/rpg-hud-interaction.webm` — 샘플 영상. 메인 히어로 배경과 RPG 샘플 상세에서 함께 사용하므로, 둘 다 교체한 뒤 삭제
+- [ ] `public/og-default.png` — 공유 이미지에 "Your Name"과 임시 헤드라인이 들어 있습니다
 - [ ] `public/favicon.svg`, `public/apple-touch-icon.png` — 원하면 교체
 - [ ] 모든 프로젝트의 `sample: true` → 실제 작업물은 `false`로 바꾸거나 줄 삭제
 - [ ] `[샘플 문구]`가 남아 있지 않은지 검색: `grep -r "샘플 문구\|입력\]" src`
@@ -245,10 +300,10 @@ Netlify, Cloudflare Pages, Vercel 등에서는 빌드 명령 `npm run build`, �
 
 ## 9. 기능 요약
 
-- 메인: 헤더(Works·About·Contact) → 짧은 소개 → 대표 프로젝트 카드 → About → Contact → 푸터
+- 메인: 영상 배경 히어로(투명 헤더, 대형 제목, 소개, 작업물 보기, 재생·일시정지) → 대표 프로젝트 카드 → About → Contact → 푸터
 - 프로젝트 목록: 320~599px 1열, 600~1199px 2열(카드 폭이 부족하면 1열), 1200px 이상 3열
 - 상세 페이지: 공통 템플릿. 선택 항목이 비어 있으면 자동으로 숨김
 - 확대 뷰어: 화면 맞춤, 원본 크기, 확대·축소 버튼, 휠, 드래그 이동, 터치 핀치·이동, 더블클릭·더블탭, 키보드(`+` `-` `0` `1` 방향키 `Esc`), 원본 열기. 열려 있는 동안 배경 스크롤을 잠그고, 닫으면 스크롤 위치와 초점을 되돌립니다
 - 모바일 메뉴: 약 640px 미만에서 메뉴 버튼으로 전환. `aria-expanded`, Esc 닫기, 바깥 클릭 닫기, 초점 처리
-- 접근성: 본문 바로가기, 시맨틱 마크업, 포커스 표시, `prefers-reduced-motion` 반영, 영상 자동 재생 없음
-- JavaScript는 모바일 메뉴, 확대 뷰어, YouTube 지연 로딩에만 사용합니다 (외부 라이브러리 없음)
+- 접근성: 본문 바로가기, 시맨틱 마크업, 포커스 표시, `prefers-reduced-motion` 반영. 자동 재생은 메인 히어로의 무음 장식 영상만 (정지 버튼 제공), 프로젝트 영상은 직접 눌러야 재생
+- JavaScript는 모바일 메뉴·헤더 상태, 히어로 영상 제어, 확대 뷰어, YouTube 지연 로딩에만 사용합니다 (외부 라이브러리 없음)

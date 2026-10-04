@@ -2,6 +2,12 @@
 import { site } from '../data/site';
 import { withBase } from '../lib/url';
 
+interface Props {
+  /** 히어로 위에 겹쳐 투명하게 시작하고, 스크롤하면 불투명해진다 (메인 전용) */
+  overlay?: boolean;
+}
+
+const { overlay = false } = Astro.props;
 const home = withBase();
 const links = [
   { label: 'Works', href: `${home}#works` },
@@ -10,7 +16,7 @@ const links = [
 ];
 ---
 
-<header class="site-header">
+<header class:list={['site-header', overlay && 'site-header--overlay']} data-site-header data-overlay={overlay ? '' : undefined}>
   <div class="container site-header__inner">
     <a class="logo" href={home}>{site.name}</a>
 
@@ -32,8 +38,19 @@ const links = [
     position: sticky;
     top: 0;
     z-index: 50;
-    background: rgb(15 16 18 / 0.94);
+    background: var(--color-header-bg);
     border-bottom: var(--border-width) solid var(--color-border);
+    transition: background-color var(--duration) var(--ease), border-color var(--duration) var(--ease);
+  }
+
+  /* 메인 히어로 위: 투명한 검정 그라디언트 + 흰 메뉴. 스크롤하거나 메뉴를 열면 불투명 검정 */
+  .site-header--overlay:not(.is-solid) {
+    background: linear-gradient(rgb(0 0 0 / 0.6), rgb(0 0 0 / 0)) border-box; /* 테두리 영역까지 같은 그라디언트 (반복 줄 방지) */
+    border-bottom-color: transparent;
+  }
+
+  .site-header--overlay:not(.is-solid) .site-nav a {
+    color: var(--color-text);
   }
 
   .site-header__inner {
@@ -49,7 +66,7 @@ const links = [
     align-items: center;
     min-height: var(--tap-min);
     min-width: 0;
-    font-weight: 800;
+    font-weight: var(--weight-heading);
     letter-spacing: 0.02em;
     text-decoration: none;
     overflow-wrap: anywhere;
@@ -72,14 +89,17 @@ const links = [
     min-width: var(--tap-min);
     padding-inline: var(--space-3);
     color: var(--color-text-muted);
-    font-weight: 600;
+    font-weight: var(--weight-ui);
     text-decoration: none;
+    text-underline-offset: 0.35em;
     border-radius: var(--radius-sm);
     transition: color var(--duration) var(--ease);
   }
 
   .site-nav a:hover {
     color: var(--color-text);
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
   }
 
   .menu-toggle {
@@ -95,7 +115,7 @@ const links = [
     border-radius: var(--radius-sm);
     background: transparent;
     cursor: pointer;
-    font-weight: 600;
+    font-weight: var(--weight-ui);
   }
 
   .menu-toggle__icon,
@@ -183,6 +203,29 @@ const links = [
   const toggle = document.querySelector<HTMLButtonElement>('[data-menu-toggle]');
   const menu = document.querySelector<HTMLElement>('[data-menu]');
   const mq = window.matchMedia('(max-width: 39.99em)');
+  const header = document.querySelector<HTMLElement>('[data-site-header]');
+
+  // 오버레이 헤더: 조금이라도 스크롤했거나 메뉴가 열려 있으면 불투명 배경
+  const updateSolid = () => {
+    if (!header?.hasAttribute('data-overlay')) return;
+    header.classList.toggle('is-solid', window.scrollY > 16 || Boolean(menu?.hasAttribute('data-open')));
+  };
+  if (header?.hasAttribute('data-overlay')) {
+    let ticking = false;
+    window.addEventListener(
+      'scroll',
+      () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+          updateSolid();
+          ticking = false;
+        });
+      },
+      { passive: true },
+    );
+    updateSolid();
+  }
 
   if (toggle && menu) {
     const label = toggle.querySelector('.menu-toggle__label');
@@ -192,6 +235,7 @@ const links = [
       toggle.setAttribute('aria-expanded', String(open));
       if (label) label.textContent = open ? '메뉴 닫기' : '메뉴';
       menu.toggleAttribute('data-open', open);
+      updateSolid();
       if (open) menu.querySelector('a')?.focus();
       else if (returnFocus) toggle.focus();
     };
