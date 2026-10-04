@@ -27,13 +27,14 @@ npm run check        # 타입·콘텐츠 스키마 검사
 ```bash
 npx playwright install chromium firefox webkit   # 최초 1회 (브라우저 약 1.2GB)
 npm run build
-npm run verify                                   # 3개 브라우저 × 14개 화면 너비 점검 (Chromium·Firefox 309개, WebKit 302개 항목)
+npm run verify                                   # 3개 브라우저 × 14개 화면 너비 점검 (Chromium·Firefox 356개, WebKit 347개 항목)
 BROWSERS=chromium SHOTS=1 npm run verify          # 크롬 계열만 + verify-report/에 스크린샷 저장
 npm run screenshots                              # 검토용 화면 캡처 → docs/screenshots/
+npm run record                                   # 입장·메뉴 모션 화면 녹화(약 9초) → docs/recordings/
 VERBOSE=1 npm run verify                         # 항목마다 바로 출력 (멈춘 위치 확인용)
 ```
 
-점검 항목은 다음과 같습니다: 가로 넘침·잘림, 그리드 열 수, 글자만 200% 확대, 히어로 영상(재생·정지 유지·화면 밖 정지·모션 줄이기·자동 재생 차단·파일 없음)과 배치, 모바일 메뉴(열기·Esc·초점), 카드 → 상세 이동, 직접 접속, 404 응답, 확대 뷰어(확대·이동·맞춤·Esc·초점·스크롤 복원), 깨진 링크·이미지, 콘솔 오류, 제목 순서, 메타데이터, 200% 확대(640px).
+점검 항목은 다음과 같습니다: 입장 연출(첫 방문·생략 조건·건너뛰기·실패 대비), 전체 화면 메뉴(열림·닫힘·연속 클릭·Esc·Tab 순환·초점·스크롤 복원·앵커 이동·영상 임시 정지), SCROLL DOWN, 가로 넘침·잘림, 그리드 열 수, 글자만 200% 확대, 히어로 영상(재생·정지 유지·화면 밖 정지·모션 줄이기·자동 재생 차단·파일 없음)과 배치, 모바일 메뉴(열기·Esc·초점), 카드 → 상세 이동, 직접 접속, 404 응답, 확대 뷰어(확대·이동·맞춤·Esc·초점·스크롤 복원), 깨진 링크·이미지, 콘솔 오류, 제목 순서, 메타데이터, 200% 확대(640px).
 
 ---
 
@@ -75,6 +76,7 @@ scripts/screenshots.mjs         ← 검토용 화면 캡처 → docs/screenshots
 | `email` | 비우거나 지우면 이메일 버튼이 숨겨집니다 |
 | `socialLinks` | 외부 포트폴리오 링크 `{ label, href }`. 빈 배열이면 숨김 |
 | `resumeUrl` | 이력서 링크(선택). 외부 URL 또는 `public/`에 넣은 파일 이름 (예: `public/resume.pdf` → `'resume.pdf'`) |
+| `contactIsSample` | 이메일·외부 링크가 아직 임시값이면 `true`. 전체 화면 메뉴의 보조 칼럼은 `false`일 때만 연락처를 보여 줍니다. **실제 연락처로 바꾼 뒤 `false`로** |
 | `description` | 검색·공유 시 표시될 사이트 설명 |
 | `credits` | 푸터의 출처·고지 문구(선택) |
 
@@ -97,6 +99,16 @@ scripts/screenshots.mjs         ← 검토용 화면 캡처 → docs/screenshots
 | `ctaLabel` / `ctaTarget` | 버튼 문구와 이동 위치 (기본 `#works`) |
 | `monochrome` | `true`면 히어로에서만 흑백 필터. 프로젝트 상세의 원본 색에는 영향 없음 |
 | `sampleLabel` | 임시 영상 표시(`SAMPLE VIDEO`). 실제 영상으로 바꾸면 `undefined`로 지웁니다 |
+
+**입장 연출 (첫 진입)** — `src/components/Intro.astro`
+- 같은 탭에서 메인에 처음 들어올 때만 약 1.1초 동안 검정 화면 가운데에 `site.name`이 보였다가 위로 걷히고, 제목 각 행 → 소개·헤더·버튼 순으로 나타납니다.
+- 앵커 주소(`/#works`)로 들어오거나, 뒤로가기, 상세에서 메인으로 돌아올 때, 모션 줄이기 설정에서는 생략합니다. 클릭·키보드·스크롤하면 바로 건너뜁니다.
+- 실행 여부는 `src/pages/index.astro` `<head>`의 짧은 스크립트가 정합니다. 연출을 끄려면 이 스크립트와 `<Intro />`를 지웁니다. 시간값은 `Intro.astro`의 CSS에서 바꿉니다.
+
+**전체 화면 메뉴** — `src/components/Header.astro`
+- 모든 화면에서 오른쪽 위 3선 버튼으로 엽니다. 큰 Works/About/Contact와 오른쪽(모바일은 아래) 보조 칼럼(직무·한 줄 소개·실제 연락처)이 나옵니다.
+- 메뉴 항목을 바꾸려면 `Header.astro`의 `links`를 수정합니다. 보조 칼럼의 소개 문구는 `site.jobTitle`과 `hero.description`을 사용합니다.
+- 메뉴가 열린 동안 배경 영상은 잠시 멈췄다가, 닫으면 원래 상태(사용자가 멈춘 경우는 정지 유지)로 돌아갑니다.
 
 **헤드라인 문구 교체 방법**
 - 영문: `titleLines: ['GAME UI', 'DESIGNED', 'FOR PLAY'], titleLang: 'en'` — 제목 글꼴 Zalando Sans Expanded로 표시됩니다.
@@ -247,6 +259,7 @@ sections:                             # 상세 본문 (위에서부터 순서대
 - 글꼴을 불러오지 못해도 `font-display: swap`으로 시스템 글꼴이 먼저 보이므로 내용은 계속 읽을 수 있습니다.
 - Google Sans는 라틴 문자만 남긴 파일입니다. 다른 문자(예: 베트남어 성조)를 쓰려면 원본 배포본에서 범위를 넓혀 다시 만들어야 합니다 (FONTS.md 참고).
 - 여백(`--space-*`), 글자 크기(`--text-*`), 최대 폭(`--content-max`, 약 1280px), 읽기 폭(`--reading-max`, 65ch), 카드 비율(`--card-ratio`)도 같은 파일에 있습니다.
+- **화면 폭 레이아웃:** 헤더·메인 히어로·전체 화면 메뉴는 최대 폭 없이 화면 폭을 쓰며 좌우 여백은 `--gutter-wide`(`clamp(1rem, 4vw, 10rem)`, 1920px에서 약 77px)입니다. 클래스는 `.container-wide`. 프로젝트 목록·상세 본문은 읽기 폭을 위해 `.container`(최대 약 1280px)를 그대로 씁니다.
 
 ---
 
@@ -300,6 +313,7 @@ Netlify, Cloudflare Pages, Vercel 등에서는 빌드 명령 `npm run build`, �
 - [ ] `public/og-default.png` — 공유 이미지에 "Your Name"과 임시 헤드라인이 들어 있습니다
 - [ ] `public/favicon.svg`, `public/apple-touch-icon.png` — 원하면 교체
 - [ ] 모든 프로젝트의 `sample: true` → 실제 작업물은 `false`로 바꾸거나 줄 삭제
+- [ ] 실제 연락처로 바꾼 뒤 `src/data/site.ts`의 `contactIsSample: false` (전체 화면 메뉴에 연락처 표시)
 - [ ] `[샘플 문구]`가 남아 있지 않은지 검색: `grep -r "샘플 문구\|입력\]" src`
 
 > 경력, 회사명, 성과 수치는 실제로 확인된 내용만 적어 주세요. 샘플에는 일부러 넣지 않았습니다.
@@ -312,6 +326,8 @@ Netlify, Cloudflare Pages, Vercel 등에서는 빌드 명령 `npm run build`, �
 - 프로젝트 목록: 320~599px 1열, 600~1199px 2열(카드 폭이 부족하면 1열), 1200px 이상 3열
 - 상세 페이지: 공통 템플릿. 선택 항목이 비어 있으면 자동으로 숨김
 - 확대 뷰어: 화면 맞춤, 원본 크기, 확대·축소 버튼, 휠, 드래그 이동, 터치 핀치·이동, 더블클릭·더블탭, 키보드(`+` `-` `0` `1` 방향키 `Esc`), 원본 열기. 열려 있는 동안 배경 스크롤을 잠그고, 닫으면 스크롤 위치와 초점을 되돌립니다
-- 모바일 메뉴: 약 640px 미만에서 메뉴 버튼으로 전환. `aria-expanded`, Esc 닫기, 바깥 클릭 닫기, 초점 처리
+- 메뉴: 모든 화면에서 3선 버튼 → 전체 화면 메뉴(배경 감광·블러, 항목 순차 등장). 모달(배경 inert), Esc·닫기 버튼, 메뉴 안 Tab 순환, 닫으면 버튼·스크롤 위치 복원, 항목 선택 시 목적지 제목에 초점
+- 입장 연출: 같은 탭 첫 메인 진입 1회, 약 1.1초, 클릭·키보드로 건너뛰기, 모션 줄이기·앵커·뒤로가기에서 생략
+- SCROLL DOWN: 왼쪽 아래 세로 트랙 모션 1.8초 × 3회 후 정지, 히어로가 화면 밖이면 정지
 - 접근성: 본문 바로가기, 시맨틱 마크업, 포커스 표시, `prefers-reduced-motion` 반영. 자동 재생은 메인 히어로의 무음 장식 영상만 (정지 버튼 제공), 프로젝트 영상은 직접 눌러야 재생
-- JavaScript는 모바일 메뉴·헤더 상태, 히어로 영상 제어, 확대 뷰어, YouTube 지연 로딩에만 사용합니다 (외부 라이브러리 없음)
+- JavaScript는 메뉴·헤더 상태, 입장 연출 판단·건너뛰기, 히어로 영상 제어, 확대 뷰어, YouTube 지연 로딩에만 사용합니다. 모션은 CSS transform/opacity 중심이며 애니메이션 라이브러리는 쓰지 않습니다 (외부 라이브러리 없음)

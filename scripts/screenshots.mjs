@@ -29,6 +29,16 @@ const shots = [
   { name: 'home-works-desktop-1440', path: '/', w: 1440, h: 900, scrollTo: '#works' },
   { name: 'home-mobile-390', path: '/', w: 390, h: 844, mobile: true },
   { name: 'home-mobile-menu-390', path: '/', w: 390, h: 844, mobile: true, menu: true },
+  { name: 'menu-open-desktop-1440', path: '/', w: 1440, h: 900, menu: true },
+  // R2 화면 폭 레이아웃 — CSS viewport 기준, deviceScaleFactor 1 (캡처 픽셀 = CSS 픽셀)
+  { name: 'wide-home-1920', path: '/', w: 1920, h: 1080 },
+  { name: 'wide-menu-1920', path: '/', w: 1920, h: 1080, menu: true },
+  { name: 'wide-home-2560', path: '/', w: 2560, h: 1440 },
+  { name: 'wide-menu-2560', path: '/', w: 2560, h: 1440, menu: true },
+  { name: 'wide-home-3840', path: '/', w: 3840, h: 2160 },
+  { name: 'wide-menu-3840', path: '/', w: 3840, h: 2160, menu: true },
+  { name: 'menu-open-landscape-844', path: '/', w: 844, h: 390, mobile: true, menu: true },
+  { name: 'menu-open-detail-768', path: '/projects/rpg-hud-character-ui/', w: 768, h: 1024, menu: true },
   { name: 'home-mobile-landscape-844', path: '/', w: 844, h: 390, mobile: true },
   { name: 'home-mobile-landscape-667', path: '/', w: 667, h: 375, mobile: true },
   // 글자 크기 200% 설정 재현 (html font-size) — 실제 브라우저 확대 기능의 완전한 대체는 아님
@@ -46,7 +56,10 @@ const shots = [
 
 const browser = await chromium.launch();
 for (const s of shots) {
-  const page = await browser.newPage({ viewport: { width: s.w, height: s.h }, hasTouch: s.mobile, isMobile: s.mobile });
+  const ctx = await browser.newContext({ viewport: { width: s.w, height: s.h }, deviceScaleFactor: 1, hasTouch: s.mobile, isMobile: s.mobile });
+  // 입장 연출(REQ-006)이 끝난 상태를 찍는다 (같은 탭 재방문처럼)
+  await ctx.addInitScript(() => { try { sessionStorage.setItem('hw-intro-played', '1'); } catch {} });
+  const page = await ctx.newPage();
   await page.goto(`http://localhost:${PORT}${s.path}`);
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(1800);
@@ -68,11 +81,11 @@ for (const s of shots) {
     await page.waitForTimeout(200);
   }
   if (s.menu) {
-    await page.click('[data-menu-toggle]');
-    await page.waitForTimeout(300); // 메뉴 아이콘 전환 애니메이션 완료 후 캡처
+    await page.$eval('[data-menu-toggle]', (b) => /** @type {HTMLButtonElement} */ (b).click()); // 스크롤 없는 실제 클릭
+    await page.waitForTimeout(900); // 전체 화면 메뉴 열림 전환 완료 후 캡처
   }
   await page.screenshot({ path: join(OUT, `${s.name}.jpg`), type: 'jpeg', quality: 72, fullPage: Boolean(s.fullPage) });
-  await page.close();
+  await ctx.close();
   console.log('saved', s.name);
 }
 await browser.close();

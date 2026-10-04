@@ -1,0 +1,115 @@
+---
+/**
+ * 메인 첫 진입 오픈 애니메이션 (REQ-006, 메인 전용)
+ * - 실행 여부는 index.astro <head>의 인라인 스크립트가 첫 화면을 그리기 전에 정한다(html.intro 클래스).
+ *   같은 탭 세션의 첫 메인 진입만 — 앵커(#works) 진입·뒤로가기·사이트 안에서 이동해 온 경우·모션 줄이기면 건너뛴다.
+ * - 애니메이션은 CSS만으로 끝나며(약 1.1초) 커버는 스스로 위로 걷힌다. JS·저장소·영상이 실패해도 검정 화면에 갇히지 않는다.
+ * - 클릭·키보드·스크롤 입력이 있으면 즉시 종료 상태로 건너뛴다. 영상 로드를 기다리지 않는다.
+ * - JS가 꺼져 있으면 html.intro가 붙지 않아 커버 없이 본문이 그대로 보인다.
+ * - 제목은 기존 줄(span) 단위로만 움직이므로 글자가 쪼개져 읽히지 않고 언어·줄바꿈 데이터도 그대로다.
+ */
+import { site } from '../data/site';
+---
+
+<div class="intro-cover" aria-hidden="true">
+  <span class="intro-cover__text">{site.name}</span>
+</div>
+
+<style is:global>
+  .intro-cover {
+    display: none;
+  }
+
+  /* 0~200ms 중앙 텍스트 → 200~650ms 커버가 위로 걷힘 */
+  html.intro .intro-cover {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg);
+    animation: intro-cover-out 450ms cubic-bezier(0.7, 0, 0.2, 1) 200ms forwards;
+  }
+
+  html.intro .intro-cover__text {
+    font-family: var(--font-display);
+    font-weight: var(--weight-display);
+    font-size: clamp(1.25rem, 0.9rem + 1.8vw, 2.25rem);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    animation: intro-text-in 200ms ease-out both;
+  }
+
+  /* 450~1000ms 히어로 제목 각 행이 아래에서 올라오며 순차 등장 */
+  html.intro .hero__line {
+    animation: intro-rise 400ms var(--ease) both;
+    animation-delay: calc(450ms + var(--i, 0) * 70ms);
+  }
+
+  /* 650~1100ms 헤더·소개·CTA·영상 제어·SCROLL DOWN 등장 */
+  html.intro .site-header,
+  html.intro .hero__top,
+  html.intro .hero__desc,
+  html.intro .hero__cta,
+  html.intro .hero__bottom {
+    animation: intro-fade 450ms var(--ease) 650ms both;
+  }
+
+  @keyframes intro-cover-out {
+    to {
+      transform: translateY(-100%);
+    }
+  }
+
+  @keyframes intro-text-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  @keyframes intro-rise {
+    from {
+      opacity: 0;
+      transform: translateY(0.35em);
+    }
+  }
+
+  @keyframes intro-fade {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+  }
+
+  /* 안전장치: 모션 줄이기가 켜져 있으면 클래스가 있어도 연출하지 않음 */
+  @media (prefers-reduced-motion: reduce) {
+    html.intro .intro-cover {
+      display: none;
+    }
+
+    html.intro .hero__line,
+    html.intro .site-header,
+    html.intro .hero__top,
+    html.intro .hero__desc,
+    html.intro .hero__cta,
+    html.intro .hero__bottom {
+      animation: none;
+    }
+  }
+</style>
+
+<script>
+  // 입력이 있으면 바로 종료 상태로. 입력이 없어도 1.3초 후에는 반드시 종료 (head 스크립트에도 같은 안전장치)
+  const root = document.documentElement;
+  if (root.classList.contains('intro')) {
+    const events = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
+    const end = () => {
+      root.classList.remove('intro');
+      events.forEach((t) => window.removeEventListener(t, end, true));
+    };
+    events.forEach((t) => window.addEventListener(t, end, { capture: true, passive: true }));
+    window.setTimeout(end, 1300);
+  }
+</script>

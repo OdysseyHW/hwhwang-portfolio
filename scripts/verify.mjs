@@ -125,18 +125,54 @@ async function headingOrder(page) {
   });
 }
 
+// 히어로 요소(제목·소개·CTA·Scroll·SAMPLE·정지 버튼·헤더)가 서로 겹치지 않고 화면 폭·히어로 안에 있는지
+const overlap = (page) =>
+  page.evaluate(() => {
+    const vw = document.documentElement.clientWidth;
+    const sel = { header: '[data-site-header]', title: '#hero-title', desc: '.hero__desc', cta: '.hero__cta', scroll: '.hero__scroll', sample: '.hero__sample', toggle: '[data-hero-toggle]' };
+    const rects = {};
+    for (const [k, q] of Object.entries(sel)) {
+      const el = document.querySelector(q);
+      if (!el || getComputedStyle(el).display === 'none') continue;
+      const r = el.getBoundingClientRect();
+      if (r.width && r.height) rects[k] = r;
+    }
+    const hero = document.querySelector('[data-hero]').getBoundingClientRect();
+    const issues = [];
+    const keys = Object.keys(rects);
+    for (let i = 0; i < keys.length; i++)
+      for (let j = i + 1; j < keys.length; j++) {
+        const a = rects[keys[i]], b = rects[keys[j]];
+        if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) issues.push(`${keys[i]}↔${keys[j]}`);
+      }
+    for (const k of keys) {
+      if (rects[k].right > vw + 1 || rects[k].left < -1) issues.push(`${k} 가로 넘침`);
+      if (k !== 'header' && (rects[k].bottom > hero.bottom + 1)) issues.push(`${k} 히어로 밖`);
+    }
+    return issues;
+  });
+
 for (const name of selected) {
   const browser = await engines[name].launch();
   const consoleErrors = [];
   const badResponses = [];
 
-  const newPage = async (opts = {}) => {
+  // 기본 검사는 입장 연출(REQ-006)을 건너뛴다 — 같은 탭 재방문처럼 세션 표시를 미리 둔다. intro: true면 실제 첫 방문.
+  const newPage = async ({ intro = false, ...opts } = {}) => {
     const ctx = await browser.newContext(opts);
+    if (!intro) await ctx.addInitScript(() => { try { sessionStorage.setItem('hw-intro-played', '1'); } catch {} });
     const page = await ctx.newPage();
     page.on('console', (m) => m.type() === 'error' && !(m.location()?.url ?? '').includes('does-not-exist') && consoleErrors.push(`${page.url()} :: ${m.text()}`));
     page.on('pageerror', (e) => consoleErrors.push(`${page.url()} :: ${e.message}`));
     page.on('response', (r) => r.status() >= 400 && !r.url().includes('does-not-exist') && badResponses.push(`${r.status()} ${r.url()}`));
     return { ctx, page };
+  };
+
+  // 전체 화면 메뉴 열기 (열림 전환이 끝날 때까지 대기)
+  const openMenu = async (page) => {
+    await page.click('[data-menu-toggle]');
+    await page.waitForFunction(() => document.querySelector('[data-menu]')?.open);
+    await page.waitForTimeout(650);
   };
 
   // 링크 수집 (메인 → 상세)
@@ -210,11 +246,12 @@ for (const name of selected) {
     check(name, name === 'webkit' ? '본문 바로가기 링크: 초점 시 화면에 표시 (프로그램 초점)' : '첫 Tab: 본문 바로가기 링크 (초점 시 화면에 표시)', first === 'skip-link' && skipTop >= 0, String(skipTop));
     await page.keyboard.press('Enter');
     check(name, '본문 바로가기 이동', await page.evaluate(() => location.hash === '#main'));
-    // 데스크톱 메뉴
-    check(name, '데스크톱: 메뉴 버튼 숨김', !(await page.isVisible('[data-menu-toggle]')));
-    check(name, '데스크톱: 메뉴 3개 표시', (await page.locator('#site-nav a:visible').count()) === 3);
+    // 데스크톱: 3선 메뉴 버튼 → 전체 화면 메뉴 (REQ-006: 펼친 텍스트 메뉴를 대체)
+    check(name, '데스크톱: 3선 메뉴 버튼 표시', await page.isVisible('[data-menu-toggle]'));
+    await openMenu(page);
+    check(name, '데스크톱: 전체 화면 메뉴 3개 표시', (await page.locator('[data-menu] .site-menu__link:visible').count()) === 3);
     // 앵커 이동 시 제목이 헤더에 가리지 않음
-    await page.click('#site-nav a[href$="#about"]');
+    await page.click('[data-menu] a[href$="#about"]');
     await page.waitForTimeout(900);
     const covered = await page.evaluate(() => {
       const h = document.querySelector('#about .section-title').getBoundingClientRect();
@@ -228,13 +265,14 @@ for (const name of selected) {
     await page.waitForLoadState(name === 'webkit' ? 'domcontentloaded' : 'load');
     check(name, '카드 이미지 영역 클릭 → 상세 이동', page.url().includes('/projects/'), page.url());
     // 상세 → 메뉴로 메인 영역 이동
-    await page.click('#site-nav a[href$="#contact"]');
+    await openMenu(page);
+    await page.click('[data-menu] a[href$="#contact"]');
     await page.waitForLoadState(name === 'webkit' ? 'domcontentloaded' : 'load');
     check(name, '상세 → Contact 메뉴 이동', page.url().endsWith(`${BASE}#contact`) && (await page.isVisible('#contact')), page.url());
     await ctx.close();
   }
 
-  // ---------- 모바일 메뉴 ----------
+  // ---------- 모바일 메뉴 (REQ-006 전체 화면 메뉴) ----------
   for (const vp of [{ width: 375, height: 667 }, { width: 320, height: 568 }]) {
     const { ctx, page } = await newPage({ viewport: vp, hasTouch: name !== 'firefox' });
     await page.goto(u('projects/inventory-shop-ui/'), gotoOpts(name));
@@ -242,21 +280,25 @@ for (const name of selected) {
     check(name, `${vp.width}px: 메뉴 버튼 표시`, await t.isVisible());
     const box = await t.boundingBox();
     check(name, `${vp.width}px: 메뉴 버튼 44×44 이상`, box.width >= 44 && box.height >= 44, `${box.width}×${box.height}`);
-    check(name, `${vp.width}px: 메뉴 닫힘 상태`, !(await page.isVisible('#site-nav a')));
+    check(name, `${vp.width}px: 메뉴 닫힘 상태`, !(await page.$eval('[data-menu]', (d) => d.open)));
     await t.click();
+    await page.waitForTimeout(650);
     check(name, `${vp.width}px: 열림 aria-expanded=true`, (await t.getAttribute('aria-expanded')) === 'true');
-    check(name, `${vp.width}px: 열면 첫 링크로 초점`, await page.evaluate(() => document.activeElement?.textContent === 'Works'));
+    check(name, `${vp.width}px: 열면 첫 메뉴 항목으로 초점`, await page.evaluate(() => document.activeElement?.classList.contains('site-menu__link') && document.activeElement.textContent.includes('Works')));
     await page.keyboard.press('Escape');
-    check(name, `${vp.width}px: Esc로 닫힘 + 버튼으로 초점 복원`, (await t.getAttribute('aria-expanded')) === 'false' && (await page.evaluate(() => document.activeElement?.hasAttribute('data-menu-toggle'))));
-    await t.click();
-    await page.click('#site-nav a[href$="#about"]');
+    await page.waitForTimeout(400);
+    const afterEsc = await page.evaluate(() => ({ open: document.querySelector('[data-menu]').open, focus: document.activeElement?.hasAttribute('data-menu-toggle'), overflow: document.documentElement.style.overflow }));
+    check(name, `${vp.width}px: Esc로 닫힘 + 버튼으로 초점 복원 + 스크롤 잠금 해제`, !afterEsc.open && afterEsc.focus && afterEsc.overflow === '' && (await t.getAttribute('aria-expanded')) === 'false', JSON.stringify(afterEsc));
+    await openMenu(page);
+    await page.click('[data-menu] a[href$="#about"]');
     await page.waitForLoadState(name === 'webkit' ? 'domcontentloaded' : 'load');
-    check(name, `${vp.width}px: 메뉴 링크로 About 이동`, page.url().endsWith(`${BASE}#about`), page.url());
-    check(name, `${vp.width}px: 이동 후 메뉴 닫힘`, (await t.getAttribute('aria-expanded')) === 'false');
-    // 바깥 클릭으로 닫기
-    await t.click();
-    await page.mouse.click(vp.width / 2, vp.height - 40);
-    check(name, `${vp.width}px: 바깥 클릭으로 닫힘`, (await t.getAttribute('aria-expanded')) === 'false');
+    check(name, `${vp.width}px: 상세에서 메뉴 → 메인 About 이동`, page.url().endsWith(`${BASE}#about`), page.url());
+    check(name, `${vp.width}px: 이동 후 메뉴 닫힘`, (await t.getAttribute('aria-expanded')) === 'false' && !(await page.$eval('[data-menu]', (d) => d.open)));
+    // 닫기 버튼
+    await openMenu(page);
+    await page.click('[data-menu-close]');
+    await page.waitForTimeout(400);
+    check(name, `${vp.width}px: 닫기 버튼으로 닫힘 + 초점 복원`, !(await page.$eval('[data-menu]', (d) => d.open)) && (await page.evaluate(() => document.activeElement?.hasAttribute('data-menu-toggle'))));
     await ctx.close();
   }
 
@@ -492,32 +534,6 @@ for (const name of selected) {
     }
 
     // 7) 제목·소개·버튼·하단 줄이 겹치거나 잘리지 않음 (여러 너비, 가로 화면, 글자 200%)
-    // 히어로 요소(제목·소개·CTA·Scroll·SAMPLE·정지 버튼·헤더)가 서로 겹치지 않고 화면 폭·히어로 안에 있는지
-    const overlap = (page) =>
-      page.evaluate(() => {
-        const vw = document.documentElement.clientWidth;
-        const sel = { header: '[data-site-header]', title: '#hero-title', desc: '.hero__desc', cta: '.hero__cta', scroll: '.hero__scroll', sample: '.hero__sample', toggle: '[data-hero-toggle]' };
-        const rects = {};
-        for (const [k, q] of Object.entries(sel)) {
-          const el = document.querySelector(q);
-          if (!el || getComputedStyle(el).display === 'none') continue;
-          const r = el.getBoundingClientRect();
-          if (r.width && r.height) rects[k] = r;
-        }
-        const hero = document.querySelector('[data-hero]').getBoundingClientRect();
-        const issues = [];
-        const keys = Object.keys(rects);
-        for (let i = 0; i < keys.length; i++)
-          for (let j = i + 1; j < keys.length; j++) {
-            const a = rects[keys[i]], b = rects[keys[j]];
-            if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) issues.push(`${keys[i]}↔${keys[j]}`);
-          }
-        for (const k of keys) {
-          if (rects[k].right > vw + 1 || rects[k].left < -1) issues.push(`${k} 가로 넘침`);
-          if (k !== 'header' && (rects[k].bottom > hero.bottom + 1)) issues.push(`${k} 히어로 밖`);
-        }
-        return issues;
-      });
     // R1) 글자 200%(html font-size) 설정 시 대형 제목이 실제로 커지는지 + 넘침 없이 소개·CTA·정지 버튼에 접근 가능한지
     //     html 크기 변경은 브라우저 글자 크기 설정의 재현이며 실제 브라우저 확대 기능의 완전한 대체는 아니다.
     for (const [w, h] of [[320, 568], [390, 844], [768, 1024], [1440, 900], [1920, 1080], [844, 390], [667, 375]]) {
@@ -595,8 +611,8 @@ for (const name of selected) {
       let keyboard = 'WebKit 테스트 빌드는 Tab 이동 불가 → DOM 순서로 대체';
       let keyOk = true;
       if (name !== 'webkit') {
-        // 헤더의 마지막 초점 요소(데스크톱: Contact, 모바일: 메뉴 버튼)에서 Tab → 영상 제어 → 다음 Tab → CTA
-        const last = w >= 640 ? '#site-nav a[href$="#contact"]' : '[data-menu-toggle]';
+        // 헤더의 마지막 초점 요소(REQ-006 이후 모든 화면에서 메뉴 버튼)에서 Tab → 영상 제어 → 다음 Tab → CTA
+        const last = '[data-menu-toggle]';
         await page.focus(last);
         await page.keyboard.press('Tab');
         const a = await page.evaluate(() => document.activeElement?.hasAttribute('data-hero-toggle'));
@@ -680,17 +696,16 @@ for (const name of selected) {
       await ctx.close();
     }
 
-    // 8) 모바일: 영상 위 메뉴 열기 → 불투명 헤더·링크 접근, Works 이동
+    // 8) 모바일: 영상 위 전체 화면 메뉴 → 배경 감광·Works 이동
     {
       const { ctx, page } = await newPage({ viewport: { width: 390, height: 844 }, hasTouch: name !== 'firefox' });
       await page.goto(u(), gotoOpts(name));
       check(name, '히어로 모바일: 처음엔 투명 헤더', !(await page.$eval('[data-site-header]', (h) => h.classList.contains('is-solid'))));
-      await page.click('[data-menu-toggle]');
-      const solid = await page.$eval('[data-site-header]', (h) => h.classList.contains('is-solid'));
-      const navBg = await page.$eval('#site-nav', (n) => getComputedStyle(n).backgroundColor);
-      check(name, '히어로 모바일: 메뉴 열면 불투명 헤더·메뉴 배경', solid && navBg === 'rgb(20, 20, 20)', navBg);
-      await page.click('#site-nav a[href$="#works"]');
-      await page.waitForTimeout(700);
+      await openMenu(page);
+      const scrim = await page.$eval('.site-menu__scrim', (s) => { const m = getComputedStyle(s).backgroundColor.match(/[\d.]+/g).map(Number); return { alpha: m[3] ?? 1, blur: getComputedStyle(s).backdropFilter || getComputedStyle(s).webkitBackdropFilter || 'none' }; });
+      check(name, '히어로 모바일: 메뉴 열면 배경 감광(+블러)·모달', scrim.alpha >= 0.7 && (await page.$eval('[data-menu]', (d) => d.matches(':modal'))), JSON.stringify(scrim));
+      await page.click('[data-menu] a[href$="#works"]');
+      await page.waitForTimeout(900);
       const worksTop = await page.$eval('#works-title', (h) => Math.round(h.getBoundingClientRect().top));
       check(name, '히어로 모바일: 메뉴 → Works 이동, 제목이 헤더 아래', page.url().endsWith('#works') && worksTop >= 60, `top ${worksTop}`);
       check(name, '히어로 모바일: 스크롤 후 불투명 헤더', await page.$eval('[data-site-header]', (h) => h.classList.contains('is-solid')));
@@ -720,6 +735,381 @@ for (const name of selected) {
     }
   }
 
+  // ---------- REQ-006: 입장 애니메이션 ----------
+  {
+    const introState = (page) =>
+      page.evaluate(() => {
+        const cover = document.querySelector('.intro-cover');
+        const cs = getComputedStyle(cover);
+        const r = cover.getBoundingClientRect();
+        const line = document.querySelector('.hero__line');
+        return {
+          cls: document.documentElement.classList.contains('intro'),
+          coverShown: cs.display !== 'none' && r.bottom > 1,
+          lineOpacity: Number(getComputedStyle(line).opacity),
+          allFinal: ['.hero__line', '.hero__desc', '.hero__cta', '.site-header', '.hero__top', '.hero__bottom'].every((q) => [...document.querySelectorAll(q)].every((el) => Number(getComputedStyle(el).opacity) === 1)),
+        };
+      });
+
+    // 첫 방문: 커버 표시 → 1.3초 안에 종료, 제목은 최종 상태
+    {
+      const { ctx, page } = await newPage({ viewport: { width: 1440, height: 900 }, intro: true });
+      const t0 = Date.now();
+      await page.goto(u(), { waitUntil: 'commit' });
+      await page.waitForSelector('.intro-cover', { state: 'attached' });
+      const early = await introState(page);
+      // 연출 길이: 입장 CSS 애니메이션의 (지연 + 재생 시간) 최댓값
+      const timeline = await page.evaluate(() => Math.max(0, ...document.getAnimations().filter((x) => String(x.animationName).startsWith('intro')).map((x) => { const t = x.effect.getTiming(); return Number(t.delay) + Number(t.duration); })));
+      // 눈에 보이는 연출 종료 시점(커버가 걷히고 모든 요소가 최종 불투명도) — 클래스 제거(안전장치)와 별개
+      let visualDoneAt = null;
+      let endedAt = null;
+      while (Date.now() - t0 < 2500) {
+        const s = await introState(page);
+        if (visualDoneAt === null && !s.coverShown && s.allFinal) visualDoneAt = Date.now() - t0;
+        if (!s.cls) { endedAt = Date.now() - t0; break; }
+        await page.waitForTimeout(30);
+      }
+      await page.waitForTimeout(150);
+      const done = await introState(page);
+      check(name, `REQ-006 입장: 첫 방문 커버 표시 → 연출 타임라인 ${timeline}ms(≤1300), 관측 완료 ${visualDoneAt}ms·정리 ${endedAt}ms`, early.cls && early.coverShown && timeline > 0 && timeline <= 1300 && visualDoneAt !== null && visualDoneAt <= 2000 && endedAt !== null && endedAt <= 1700 && !done.coverShown && done.allFinal, JSON.stringify({ early, done }));
+      // 같은 탭 재방문(새로고침), 사이트 안 이동(상세→로고로 메인)
+      await page.reload(gotoOpts(name));
+      const reload = await introState(page);
+      await page.goto(u('projects/rpg-hud-character-ui/'), gotoOpts(name));
+      await page.click('[data-site-header] .logo');
+      await page.waitForLoadState(name === 'webkit' ? 'domcontentloaded' : 'load');
+      const back = await introState(page);
+      check(name, 'REQ-006 입장: 같은 탭 새로고침·상세→메인 복귀에는 생략', !reload.cls && !reload.coverShown && !back.cls && !back.coverShown, JSON.stringify({ reload, back }));
+      await ctx.close();
+    }
+    // 앵커 직접 진입, 뒤로가기
+    {
+      const { ctx, page } = await newPage({ viewport: { width: 1280, height: 800 }, intro: true });
+      await page.goto(u() + '#works', gotoOpts(name));
+      const anchor = await introState(page);
+      check(name, 'REQ-006 입장: #works 직접 진입에는 생략', !anchor.cls && !anchor.coverShown, JSON.stringify(anchor));
+      await ctx.close();
+      const n2 = await newPage({ viewport: { width: 1280, height: 800 }, intro: true });
+      await n2.page.goto(u('projects/inventory-shop-ui/'), gotoOpts(name));
+      await n2.page.goto(u() + '?from=bf', gotoOpts(name)); // 다른 사이트에서 온 것처럼 referrer 없음 → 연출 실행
+      await n2.page.waitForTimeout(1800);
+      await n2.page.goto(u('projects/rpg-hud-character-ui/'), gotoOpts(name));
+      await n2.page.goBack(gotoOpts(name));
+      const bf = await introState(n2.page);
+      check(name, 'REQ-006 입장: 뒤로가기로 메인 복귀에는 생략', !bf.cls && !bf.coverShown, JSON.stringify(bf));
+      await n2.ctx.close();
+    }
+    // 입력하면 즉시 종료
+    {
+      const { ctx, page } = await newPage({ viewport: { width: 1280, height: 800 }, intro: true });
+      await page.goto(u(), { waitUntil: 'commit' });
+      await page.waitForSelector('.intro-cover', { state: 'attached' });
+      await page.waitForTimeout(120);
+      const before = await introState(page);
+      await page.mouse.click(640, 400);
+      await page.waitForTimeout(80);
+      const after = await introState(page);
+      check(name, 'REQ-006 입장: 클릭하면 즉시 종료 상태로 건너뜀', before.cls && !after.cls && !after.coverShown, JSON.stringify({ before, after }));
+      await ctx.close();
+    }
+    // JS 꺼짐 / 저장소 차단 / 모션 줄이기 / 영상 실패 / 글자 200%
+    {
+      const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, javaScriptEnabled: false });
+      const page = await ctx.newPage();
+      await page.goto(u(), gotoOpts(name));
+      const s = await introState(page);
+      check(name, 'REQ-006 입장: JS 꺼짐 → 커버 없이 본문 표시', !s.cls && !s.coverShown && s.lineOpacity === 1, JSON.stringify(s));
+      await ctx.close();
+    }
+    {
+      const { ctx, page } = await newPage({ viewport: { width: 1280, height: 800 }, intro: true });
+      await ctx.addInitScript(() => Object.defineProperty(window, 'sessionStorage', { get() { throw new Error('blocked (test)'); } }));
+      await page.goto(u(), gotoOpts(name));
+      await page.waitForTimeout(300);
+      const s = await introState(page);
+      check(name, 'REQ-006 입장: 저장소 차단 → 갇히지 않고 본문 표시', !s.cls && !s.coverShown && s.lineOpacity === 1, JSON.stringify(s));
+      await ctx.close();
+    }
+    {
+      const { ctx, page } = await newPage({ viewport: { width: 1280, height: 800 }, intro: true, reducedMotion: 'reduce' });
+      await page.goto(u(), gotoOpts(name));
+      const s = await introState(page);
+      check(name, 'REQ-006 입장: 모션 줄이기 → 생략', !s.cls && !s.coverShown, JSON.stringify(s));
+      await ctx.close();
+    }
+    {
+      const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } }); // 입장 연출 실행, 오류 수집 제외
+      const page = await ctx.newPage();
+      await ctx.route((url) => url.pathname === BASE, async (r) => {
+        const res = await r.fetch();
+        await r.fulfill({ response: res, body: (await res.text()).replaceAll('rpg-hud-interaction.webm', 'missing-video-for-test.webm') });
+      });
+      await page.goto(u(), gotoOpts(name));
+      await page.waitForTimeout(1800);
+      const s = await introState(page);
+      check(name, 'REQ-006 입장: 영상 로드 실패해도 종료·본문 표시', !s.cls && !s.coverShown && s.lineOpacity === 1, JSON.stringify(s));
+      await ctx.close();
+    }
+    for (const [w, h] of [[390, 844], [844, 390]]) {
+      const { ctx, page } = await newPage({ viewport: { width: w, height: h }, intro: true });
+      await ctx.addInitScript(() => {
+        const set = () => { if (!document.documentElement) return false; document.documentElement.style.fontSize = '200%'; return true; };
+        if (!set()) { const mo = new MutationObserver(() => { if (set()) mo.disconnect(); }); mo.observe(document, { childList: true, subtree: true }); }
+      });
+      await page.goto(u(), gotoOpts(name));
+      await page.waitForTimeout(1800);
+      const s = await introState(page);
+      const issues = [...(await layoutIssues(page)), ...(await overlap(page))];
+      check(name, `REQ-006 입장: 글자 200% ${w}×${h} 종료 후 넘침·겹침 없음`, !s.cls && issues.length === 0, issues.join(' | '));
+      await ctx.close();
+    }
+  }
+
+  // ---------- REQ-006: SCROLL DOWN ----------
+  {
+    const { ctx, page } = await newPage({ viewport: { width: 1440, height: 900 } });
+    await page.goto(u(), gotoOpts(name));
+    const info = await page.evaluate(() => {
+      const a = document.querySelector('.hero__scroll');
+      const r = a.getBoundingClientRect();
+      const dot = document.querySelector('.hero__scroll-dot');
+      const cs = getComputedStyle(dot);
+      return { name: a.textContent.replace(/\s+/g, ' ').trim(), href: a.getAttribute('href'), w: r.width, h: r.height, left: r.left, bottom: r.bottom, vh: innerHeight, dur: cs.animationDuration, count: cs.animationIterationCount };
+    });
+    check(name, 'REQ-006 SCROLL DOWN: 왼쪽 아래·이름·44px·#works·1.8초×3회', /Scroll Down/i.test(info.name) && info.href === '#works' && info.w >= 44 && info.h >= 44 && info.left < 200 && info.bottom <= info.vh && info.dur === '1.8s' && info.count === '3', JSON.stringify(info));
+    await page.evaluate(() => document.querySelector('#contact').scrollIntoView());
+    await page.waitForTimeout(500);
+    const paused = await page.$eval('.hero__scroll-dot', (d) => getComputedStyle(d).animationPlayState);
+    check(name, 'REQ-006 SCROLL DOWN: 히어로가 화면 밖이면 모션 정지', paused === 'paused', paused);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(400);
+    await page.click('.hero__scroll');
+    await page.waitForTimeout(900);
+    check(name, 'REQ-006 SCROLL DOWN: 클릭하면 Works로 이동(스크롤 가로채기 없음)', page.url().endsWith('#works'), page.url());
+    await ctx.close();
+    const rm = await newPage({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+    await rm.page.goto(u(), gotoOpts(name));
+    const anim = await rm.page.$eval('.hero__scroll-dot', (d) => getComputedStyle(d).animationName);
+    check(name, 'REQ-006 SCROLL DOWN: 모션 줄이기 → 반복 모션 없음', anim === 'none', anim);
+    await rm.ctx.close();
+  }
+
+  // ---------- REQ-006: 전체 화면 메뉴 ----------
+  {
+    const menuState = (page) =>
+      page.evaluate(() => {
+        const d = document.querySelector('[data-menu]');
+        return {
+          open: d.open,
+          isOpen: d.classList.contains('is-open'),
+          expanded: document.querySelector('[data-menu-toggle]').getAttribute('aria-expanded'),
+          overflow: document.documentElement.style.overflow,
+          focusToggle: document.activeElement?.hasAttribute('data-menu-toggle'),
+          focusInside: Boolean(document.activeElement?.closest('[data-menu]')),
+        };
+      });
+
+    // 모든 화면 × 기본/글자 200%: 버튼·닫기·항목 접근
+    for (const [w, h] of [[320, 568], [390, 844], [768, 1024], [1440, 900], [1920, 1080], [667, 375], [844, 390]]) {
+      for (const zoom of [false, true]) {
+        const { ctx, page } = await newPage({ viewport: { width: w, height: h } });
+        await page.goto(u(), gotoOpts(name));
+        if (zoom) await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
+        const tb = await page.locator('[data-menu-toggle]').boundingBox();
+        const toggleOk = tb && tb.width >= 44 && tb.height >= 44 && tb.x >= 0 && tb.x + tb.width <= w && tb.y >= 0;
+        await openMenu(page);
+        const r = await page.evaluate(() => {
+          const vw = document.documentElement.clientWidth;
+          const c = document.querySelector('[data-menu-close]').getBoundingClientRect();
+          const links = [...document.querySelectorAll('[data-menu] .site-menu__link')];
+          const reachable = links.map((l) => { l.scrollIntoView({ block: 'nearest' }); const b = l.getBoundingClientRect(); return b.height > 0 && b.top >= 0 && b.bottom <= innerHeight + 1 && b.right <= vw + 1; });
+          const c2 = document.querySelector('[data-menu-close]').getBoundingClientRect(); // 패널을 스크롤해도 닫기 버튼 유지
+          return { close: [c.top, c.bottom, c.right, c.width, c.height], close2: [c2.top, c2.bottom], reachable, vw };
+        });
+        const closeOk = r.close[0] >= 0 && r.close[1] <= h && r.close[2] <= r.vw + 1 && r.close[3] >= 44 && r.close[4] >= 44 && r.close2[0] >= 0 && r.close2[1] <= h;
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(400);
+        const st = await menuState(page);
+        check(name, `REQ-006 메뉴 ${w}×${h}${zoom ? ' 글자200%' : ''}: 버튼·닫기 44px 화면 안, 항목 3개 접근, Esc 정리`, toggleOk && closeOk && r.reachable.every(Boolean) && !st.open && st.overflow === '' && st.focusToggle, JSON.stringify({ toggleOk, r, st }));
+        await ctx.close();
+      }
+    }
+
+    // 열림 모션: 항목이 순차 등장(60~80ms 간격)하고 최종 상태 도달 / 모달
+    {
+      const { ctx, page } = await newPage({ viewport: { width: 1440, height: 900 } });
+      await page.goto(u(), gotoOpts(name));
+      await page.click('[data-menu-toggle]');
+      await page.waitForTimeout(60);
+      const mid = await page.$$eval('[data-menu] .site-menu__list li', (lis) => lis.map((li) => Number(getComputedStyle(li).opacity)));
+      const timing = await page.$$eval('[data-menu] .site-menu__list li', (lis) => lis.map((li) => getComputedStyle(li).transitionDelay.split(',')[0].trim()));
+      await page.waitForTimeout(700);
+      const end = await page.$$eval('[data-menu] .site-menu__list li', (lis) => lis.map((li) => Number(getComputedStyle(li).opacity)));
+      const modal = await page.$eval('[data-menu]', (d) => d.matches(':modal'));
+      check(name, 'REQ-006 메뉴: 열림 모션(항목 순차 등장)·최종 상태·모달(배경 inert)', mid.some((o) => o < 1) && end.every((o) => o === 1) && modal && timing.join() === '0.12s,0.19s,0.26s', JSON.stringify({ mid, end, timing, modal }));
+      // Tab 순환
+      if (name !== 'webkit') {
+        for (let i = 0; i < 12; i++) await page.keyboard.press('Tab');
+        check(name, 'REQ-006 메뉴: Tab 초점이 메뉴 안에서 순환', (await menuState(page)).focusInside);
+      }
+      // 보조 칼럼: 임시 연락처는 노출하지 않음
+      const contact = await page.$$eval('[data-menu] a[href^="mailto:"], [data-menu] .site-menu__contact', (els) => els.length);
+      check(name, 'REQ-006 메뉴: 임시 연락처를 보조 칼럼에 노출하지 않음 (contactIsSample)', contact === 0, String(contact));
+      await ctx.close();
+    }
+
+    // 빠른 연속 클릭·열림 도중 Escape → 최종 상태 일관, 잠금·초점 정리
+    {
+      const { ctx, page } = await newPage({ viewport: { width: 1280, height: 800 } });
+      await page.goto(u(), gotoOpts(name));
+      await page.click('[data-menu-toggle]');
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(30);
+      await page.click('[data-menu-toggle]', { force: true }).catch(() => {});
+      await page.waitForTimeout(30);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+      const s1 = await menuState(page);
+      await page.click('[data-menu-toggle]');
+      await page.waitForTimeout(40);
+      await page.click('[data-menu-close]');
+      await page.waitForTimeout(20);
+      await page.click('[data-menu-toggle]', { force: true }).catch(() => {});
+      await page.waitForTimeout(800);
+      const s2 = await menuState(page);
+      check(name, 'REQ-006 메뉴: 연속 클릭·열림 도중 Esc 후 상태 일관', !s1.open && s1.overflow === '' && s1.expanded === 'false' && s1.focusToggle && (s2.open ? s2.isOpen && s2.expanded === 'true' && s2.overflow === 'hidden' : !s2.isOpen && s2.overflow === ''), JSON.stringify({ s1, s2 }));
+      await ctx.close();
+    }
+
+    // 스크롤 위치 복원, 앵커 선택 → 목적지 제목 초점, 상세에서 메인 앵커
+    {
+      const { ctx, page } = await newPage({ viewport: { width: 1280, height: 800 } });
+      await page.goto(u(), gotoOpts(name));
+      await page.evaluate(() => window.scrollTo({ top: 700, behavior: 'instant' }));
+      await page.waitForTimeout(300);
+      // Playwright의 click()은 sticky 헤더 버튼을 화면에 맞추려고 페이지를 스크롤하므로, 실제 사용자처럼 스크롤 없이 누른다
+      await page.$eval('[data-menu-toggle]', (b) => b.click());
+      await page.waitForTimeout(700);
+      await page.$eval('[data-menu-close]', (b) => b.click());
+      await page.waitForTimeout(400);
+      const y = await page.evaluate(() => Math.round(window.scrollY));
+      check(name, 'REQ-006 메뉴: 닫으면 연 시점의 스크롤 위치 복원', Math.abs(y - 700) <= 2, String(y));
+      await openMenu(page);
+      await page.click('[data-menu] a[href$="#contact"]');
+      await page.waitForTimeout(900);
+      const a = await page.evaluate(() => ({ hash: location.hash, focus: document.activeElement?.id, open: document.querySelector('[data-menu]').open, overflow: document.documentElement.style.overflow }));
+      check(name, 'REQ-006 메뉴: 앵커 선택 → 닫힘·이동·목적지 제목에 초점', a.hash === '#contact' && a.focus === 'contact-title' && !a.open && a.overflow === '', JSON.stringify(a));
+      await page.goto(u('projects/mobile-lobby-menu-ux/'), gotoOpts(name));
+      await openMenu(page);
+      await page.click('[data-menu] a[href$="#works"]');
+      await page.waitForLoadState(name === 'webkit' ? 'domcontentloaded' : 'load');
+      await page.waitForTimeout(800); // 앵커 처리 후(load 다음 프레임, 대비책 600ms) 초점 전달
+      const crossFocus = await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName);
+      check(name, 'REQ-006 메뉴(R1): 상세에서 메인 #works로 이동 + 목적지 제목 초점', page.url().endsWith(`${BASE}#works`) && crossFocus === 'works-title', `${page.url()} focus=${crossFocus}`);
+      // R1: 상세 → 메인 About·Contact도 새 문서에서 목적지 제목 초점
+      for (const [hash, id] of [['#about', 'about-title'], ['#contact', 'contact-title']]) {
+        await page.goto(u('projects/inventory-shop-ui/'), gotoOpts(name));
+        await openMenu(page);
+        await page.click(`[data-menu] a[href$="${hash}"]`);
+        await page.waitForLoadState(name === 'webkit' ? 'domcontentloaded' : 'load');
+        await page.waitForTimeout(800);
+        const fx = await page.evaluate(() => ({ id: document.activeElement?.id || document.activeElement?.tagName, hash: location.hash }));
+        check(name, `REQ-006 메뉴(R1): 상세 → 메인 ${hash} 목적지 제목 초점`, fx.hash === hash && fx.id === id, JSON.stringify(fx));
+      }
+      // R1 보존: 뒤로가기로 메인 #contact에 돌아오거나, 앵커 주소로 직접 들어오면 초점을 옮기지 않는다
+      // (캐시 복원 시 이전 초점이 되살아나는 것과 구분하려고 떠나기 전에 초점을 해제)
+      await page.evaluate(() => document.activeElement?.blur());
+      await page.goto(u('projects/rpg-hud-character-ui/'), gotoOpts(name));
+      await page.goBack(gotoOpts(name));
+      await page.waitForTimeout(300);
+      const bfFocus = await page.evaluate(() => ({ id: document.activeElement?.id || document.activeElement?.tagName, hash: location.hash }));
+      await page.goto(u() + '#about', gotoOpts(name));
+      await page.waitForTimeout(200);
+      const directFocus = await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName);
+      check(name, 'REQ-006 메뉴(R1): 뒤로가기·앵커 직접 진입에는 제목 초점 이동 없음', bfFocus.id !== 'contact-title' && directFocus !== 'about-title', JSON.stringify({ bfFocus, directFocus }));
+      await ctx.close();
+    }
+
+    // 메뉴 열린 동안 배경 영상 임시 정지, 닫으면 복원 (사용자 정지로 저장하지 않음)
+    if (name !== 'webkit') {
+      const { ctx, page } = await newPage({ viewport: { width: 1280, height: 800 } });
+      await page.goto(u(), gotoOpts(name));
+      await page.waitForTimeout(1200);
+      const p0 = await page.$eval('[data-hero-video]', (v) => v.paused);
+      await openMenu(page);
+      const p1 = await page.$eval('[data-hero-video]', (v) => v.paused);
+      await page.click('[data-menu-close]');
+      await page.waitForTimeout(900);
+      const p2 = await page.evaluate(() => ({ paused: document.querySelector('[data-hero-video]').paused, stored: localStorage.getItem('hero-video-paused') }));
+      // 사용자가 멈춘 상태면 메뉴를 닫아도 정지 유지
+      await page.click('[data-hero-toggle]');
+      await openMenu(page);
+      await page.click('[data-menu-close]');
+      await page.waitForTimeout(700);
+      const p3 = await page.$eval('[data-hero-video]', (v) => v.paused);
+      check(name, 'REQ-006 메뉴: 열면 영상 임시 정지 → 닫으면 재생 복원(저장 안 함), 사용자 정지는 유지', !p0 && p1 && !p2.paused && p2.stored === null && p3, JSON.stringify({ p0, p1, p2, p3 }));
+      await ctx.close();
+    }
+
+    // 모션 줄이기: 메뉴 기능 유지, 항목 이동 없음, 즉시 닫힘
+    {
+      const { ctx, page } = await newPage({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
+      await page.goto(u(), gotoOpts(name));
+      await page.click('[data-menu-toggle]');
+      await page.waitForTimeout(250);
+      const tf = await page.$$eval('[data-menu] .site-menu__list li', (lis) => lis.map((li) => getComputedStyle(li).transform));
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(50);
+      const st = await menuState(page);
+      check(name, 'REQ-006 메뉴 모션 줄이기: 이동 없이 열림·즉시 닫힘·초점 복원', tf.every((t) => t === 'none') && !st.open && st.focusToggle, JSON.stringify({ tf, st }));
+      await ctx.close();
+    }
+  }
+
+  // ---------- REQ-006 보완 R2: 화면 폭 레이아웃 정렬 ----------
+  for (const [w, h] of [[320, 568], [390, 844], [1440, 900], [1920, 1080], [2560, 1440], [3840, 2160]]) {
+    const { ctx, page } = await newPage({ viewport: { width: w, height: h } });
+    await page.goto(u(), gotoOpts(name));
+    await page.evaluate(() => Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]));
+    const box = (q) => page.$eval(q, (el) => { const r = el.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; });
+    const m = await page.evaluate(() => {
+      const vw = window.innerWidth;
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+      // 레이아웃 폭: scrollbar-gutter로 예약된 공간을 뺀 실제 내용 폭(히어로 너비) 기준
+      return { cw: document.querySelector('[data-hero]').getBoundingClientRect().right, gutter: Math.min(Math.max(rem, vw * 0.04), 10 * rem), grid: document.querySelector('.project-grid').getBoundingClientRect().width };
+    });
+    const lefts = {
+      logo: (await box('.site-header .logo')).l,
+      title: (await box('#hero-title')).l,
+      desc: (await box('.hero__desc')).l,
+      cta: (await box('.hero__cta')).l,
+      scroll: (await box('.hero__scroll')).l,
+    };
+    const menuBtn = await box('[data-menu-toggle]');
+    const rights = { menuLines: (await box('.site-header .menu-btn__lines span')).r, videoToggle: (await box('[data-hero-toggle]')).r };
+    // 메뉴를 열어도 로고·버튼 위치가 그대로이고, 큰 링크도 같은 왼쪽 선
+    await page.$eval('[data-menu-toggle]', (b) => b.click()); // 스크롤 없는 실제 클릭
+    await page.waitForTimeout(700);
+    const menuLogo = (await box('.site-menu__bar .logo')).l;
+    const closeBtn = await box('[data-menu-close]');
+    const menuLink = (await box('[data-menu] .site-menu__link')).l;
+    const near = (a, b, tol = 0.6) => Math.abs(a - b) <= tol;
+    const leftVals = [...Object.values(lefts), menuLogo, menuLink];
+    const leftOk = leftVals.every((v) => near(v, m.gutter));
+    // 오른쪽 선: 레이아웃 영역(히어로)의 오른쪽 끝 - 여백 (scrollbar-gutter로 예약된 폭은 clientWidth에 반영되지 않으므로 요소 기준)
+    const rightLine = (await box('[data-hero]')).r - m.gutter;
+    const rightOk = near(rights.menuLines, rightLine) && near(rights.videoToggle, rightLine);
+    const noJump = near(closeBtn.l, menuBtn.l) && near(closeBtn.t, menuBtn.t) && near(menuLogo, lefts.logo);
+    const readOk = m.grid <= 1280 + 0.5;
+    check(
+      name,
+      `REQ-006 R2 ${w}×${h}: 왼쪽 선 ${m.gutter.toFixed(1)}px 통일, 오른쪽 선 일치, 메뉴 열어도 위치 유지, 카드 폭 ${Math.round(m.grid)}px`,
+      leftOk && rightOk && noJump && readOk,
+      JSON.stringify({ lefts, menuLogo, menuLink, rights, rightLine, menuBtn, closeBtn, grid: m.grid }),
+    );
+    await ctx.close();
+  }
+
   // ---------- 200% 확대 (1280px 창 = CSS 640px) ----------
   {
     const { ctx, page } = await newPage({ viewport: { width: 640, height: 400 }, deviceScaleFactor: 2 });
@@ -741,13 +1131,16 @@ for (const name of selected) {
       const issues = await layoutIssues(page);
       check(name, `글자 200%(${w}px) ${p.replace(ORIGIN, '')}`, issues.length === 0, issues.join(' | '));
     }
-    // 글자 확대 상태에서도 메뉴 동작
+    // 글자 확대 상태에서도 메뉴 동작 (전체 화면 메뉴)
     await page.goto(u(), gotoOpts(name));
     await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
-    const toggleVisible = await page.isVisible('[data-menu-toggle]');
-    if (toggleVisible) await page.click('[data-menu-toggle]');
-    const navOk = (await page.locator('#site-nav a:visible').count()) === 3;
-    check(name, `글자 200%(${w}px) 메뉴 3개 접근 가능`, navOk, toggleVisible ? '메뉴 버튼 사용' : '전체 메뉴');
+    await openMenu(page);
+    const navOk = await page.evaluate(() => {
+      const links = [...document.querySelectorAll('[data-menu] .site-menu__link')];
+      links.forEach((l) => l.scrollIntoView({ block: 'nearest' }));
+      return links.length === 3 && links.every((l) => l.getBoundingClientRect().height > 0);
+    });
+    check(name, `글자 200%(${w}px) 메뉴 3개 접근 가능`, navOk, '전체 화면 메뉴');
     await ctx.close();
   }
 

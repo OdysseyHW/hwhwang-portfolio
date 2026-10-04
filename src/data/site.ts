@@ -27,6 +27,11 @@ export interface SiteInfo {
   email?: string;
   socialLinks: SocialLink[];
   resumeUrl?: string;
+  /**
+   * 이메일·외부 링크가 아직 임시값이면 true. 전체 화면 메뉴의 보조 칼럼에는 실제 값일 때(false)만 연락처를 보여 준다.
+   * 실제 연락처로 바꾼 뒤 false로 변경한다.
+   */
+  contactIsSample: boolean;
   /** 검색·공유용 기본 설명 */
   description: string;
   /** 푸터에 표시할 출처/고지 문구 (선택) */
@@ -55,6 +60,7 @@ export const site: SiteInfo = {
     { label: 'Behance', href: 'https://www.behance.net/' },
   ],
   resumeUrl: undefined,
+  contactIsSample: true, // hello@example.com, ArtStation·Behance 메인 페이지는 임시값
   description: '게임 UI 디자이너 포트폴리오 — HUD, 로비·메뉴 UX, 인벤토리·상점 UI 작업과 디자인 과정을 소개합니다.',
   credits: '샘플 이미지는 이 사이트용으로 직접 만든 임시 도형 이미지입니다.',
 };

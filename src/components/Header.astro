@@ -1,5 +1,13 @@
 ---
+/**
+ * 상단 내비게이션 (REQ-006)
+ * - 왼쪽 이름, 오른쪽 길이가 다른 가는 3선 메뉴 버튼 — 모든 화면에서 같은 구성.
+ * - 버튼을 누르면 전체 화면 메뉴(모달 <dialog>)가 열린다: 배경 감광·블러, 큰 Works/About/Contact, 보조 칼럼.
+ * - 모달이라 배경은 inert, Escape·닫기 버튼 지원, 초점은 메뉴 안에서 순환하고 닫으면 버튼·스크롤 위치로 돌아온다.
+ * - 메뉴 항목으로 이동하면 메뉴를 닫고 목적지 제목에 초점을 준다 (상세 페이지에서는 메인의 해당 영역으로 이동).
+ */
 import { site } from '../data/site';
+import { hero } from '../data/hero';
 import { withBase } from '../lib/url';
 
 interface Props {
@@ -14,24 +22,71 @@ const links = [
   { label: 'About', href: `${home}#about` },
   { label: 'Contact', href: `${home}#contact` },
 ];
+// 보조 칼럼의 연락처는 실제 값일 때만 (임시 연락처를 실제 주소처럼 노출하지 않음)
+const showContact = !site.contactIsSample && (Boolean(site.email) || site.socialLinks.length > 0);
 ---
 
 <header class:list={['site-header', overlay && 'site-header--overlay']} data-site-header data-overlay={overlay ? '' : undefined}>
-  <div class="container site-header__inner">
+  <div class="container-wide site-header__inner">
     <a class="logo" href={home}>{site.name}</a>
-
-    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" data-menu-toggle>
-      <span class="menu-toggle__icon" aria-hidden="true"></span>
-      <span class="menu-toggle__label">메뉴</span>
+    <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-menu" aria-label="메뉴 열기" data-menu-toggle>
+      <span class="menu-btn__lines" aria-hidden="true"><span></span><span></span><span></span></span>
     </button>
-
-    <nav id="site-nav" class="site-nav" aria-label="주요 메뉴" data-menu>
-      <ul>
-        {links.map((l) => <li><a href={l.href}>{l.label}</a></li>)}
-      </ul>
-    </nav>
   </div>
 </header>
+
+<dialog id="site-menu" class="site-menu" aria-label="사이트 메뉴" data-menu>
+  <div class="site-menu__scrim" aria-hidden="true"></div>
+  <div class="site-menu__panel">
+    <div class="container-wide site-menu__bar">
+      <a class="logo" href={home} data-menu-link>{site.name}</a>
+      <button class="menu-btn is-close" type="button" aria-label="메뉴 닫기" data-menu-close>
+        <span class="menu-btn__lines" aria-hidden="true"><span></span><span></span><span></span></span>
+      </button>
+    </div>
+
+    <div class="container-wide site-menu__body">
+      <nav class="site-menu__nav" aria-label="주요 메뉴">
+        <ol class="site-menu__list">
+          {
+            links.map((l, i) => (
+              <li style={`--i: ${i}`}>
+                <a class="site-menu__link" href={l.href} data-menu-link>
+                  <span class="site-menu__num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+                  <span class="site-menu__label">{l.label}</span>
+                </a>
+              </li>
+            ))
+          }
+        </ol>
+      </nav>
+
+      <aside class="site-menu__aside" aria-label="소개">
+        <p class="site-menu__role">{site.jobTitle}</p>
+        <p class="site-menu__desc">{hero.description}</p>
+        {
+          showContact && (
+            <ul class="site-menu__contact">
+              {site.email && (
+                <li>
+                  <a href={`mailto:${site.email}`}>{site.email}</a>
+                </li>
+              )}
+              {site.socialLinks.map((s) => (
+                <li>
+                  <a href={s.href} target="_blank" rel="noopener noreferrer">
+                    {s.label}
+                    <span class="visually-hidden"> (새 탭)</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </aside>
+    </div>
+  </div>
+</dialog>
 
 <style>
   .site-header {
@@ -43,17 +98,14 @@ const links = [
     transition: background-color var(--duration) var(--ease), border-color var(--duration) var(--ease);
   }
 
-  /* 메인 히어로 위: 투명한 검정 그라디언트 + 흰 메뉴. 스크롤하거나 메뉴를 열면 불투명 검정 */
+  /* 메인 히어로 위: 투명한 검정 그라디언트. 스크롤하면 불투명 검정 */
   .site-header--overlay:not(.is-solid) {
     background: linear-gradient(rgb(0 0 0 / 0.6), rgb(0 0 0 / 0)) border-box; /* 테두리 영역까지 같은 그라디언트 (반복 줄 방지) */
     border-bottom-color: transparent;
   }
 
-  .site-header--overlay:not(.is-solid) .site-nav a {
-    color: var(--color-text);
-  }
-
-  .site-header__inner {
+  .site-header__inner,
+  .site-menu__bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -72,198 +124,472 @@ const links = [
     overflow-wrap: anywhere;
   }
 
-  .site-nav ul {
-    display: flex;
-    gap: var(--space-1);
+  /* ---------- 3선 메뉴 버튼 ---------- */
+  .menu-btn {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: var(--tap-min);
+    height: var(--tap-min);
+    margin-right: -9px; /* 26px 선이 44px 버튼 가운데 → 선의 오른쪽 끝을 오른쪽 여백 선에 맞춤 */
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text);
+    cursor: pointer;
+  }
+
+  .menu-btn__lines {
+    position: relative;
+    display: block;
+    width: 26px;
+    height: 14px;
+  }
+
+  /* 길이가 다른 가는 선 3개 (오른쪽 정렬) */
+  .menu-btn__lines span {
+    position: absolute;
+    right: 0;
+    height: 1.5px;
+    background: currentColor;
+    border-radius: 1px;
+    transition: width var(--menu-line-dur) var(--ease), transform var(--menu-line-dur) var(--ease), opacity var(--menu-line-dur) var(--ease), top var(--menu-line-dur) var(--ease);
+  }
+
+  .menu-btn__lines span:nth-child(1) {
+    top: 0;
+    width: 26px;
+  }
+
+  .menu-btn__lines span:nth-child(2) {
+    top: 6.25px;
+    width: 18px;
+  }
+
+  .menu-btn__lines span:nth-child(3) {
+    top: 12.5px;
+    width: 10px;
+  }
+
+  /* hover·focus: 길이가 정돈됨 */
+  .menu-btn:hover .menu-btn__lines span,
+  .menu-btn:focus-visible .menu-btn__lines span {
+    width: 26px;
+  }
+
+  /* 닫기(X) 상태 */
+  .menu-btn.is-close .menu-btn__lines span,
+  .menu-btn[aria-expanded='true'] .menu-btn__lines span {
+    top: 6.25px;
+    width: 26px;
+  }
+
+  .menu-btn.is-close .menu-btn__lines span:nth-child(1),
+  .menu-btn[aria-expanded='true'] .menu-btn__lines span:nth-child(1) {
+    transform: rotate(45deg);
+  }
+
+  .menu-btn.is-close .menu-btn__lines span:nth-child(2),
+  .menu-btn[aria-expanded='true'] .menu-btn__lines span:nth-child(2) {
+    opacity: 0;
+  }
+
+  .menu-btn.is-close .menu-btn__lines span:nth-child(3),
+  .menu-btn[aria-expanded='true'] .menu-btn__lines span:nth-child(3) {
+    transform: rotate(-45deg);
+  }
+
+  /* ---------- 전체 화면 메뉴 ---------- */
+  .site-menu {
+    --menu-in: 320ms;
+    --menu-out: 200ms;
+    position: fixed;
+    inset: 0;
+    /* 내용은 페이지와 같은 폭(스크롤바 여백 제외)이라 열어도 로고·버튼 위치가 그대로다 */
+    width: 100%;
+    max-width: none;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
     margin: 0;
-    margin-right: calc(var(--space-3) * -1);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-text);
+    overflow: visible;
+  }
+
+  .site-menu::backdrop {
+    background: transparent;
+  }
+
+  /* 배경 감광은 스크롤바 여백까지 덮는다 */
+  .site-menu__scrim {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100%;
+    background: rgb(0 0 0 / 0);
+    transition: background-color 260ms var(--ease), backdrop-filter 260ms var(--ease), -webkit-backdrop-filter 260ms var(--ease);
+  }
+
+  .site-menu.is-open .site-menu__scrim {
+    background: rgb(5 5 5 / 0.72);
+    -webkit-backdrop-filter: blur(10px) grayscale(1);
+    backdrop-filter: blur(10px) grayscale(1);
+  }
+
+  /* 블러를 지원하지 않으면 불투명에 가까운 검정으로도 충분히 읽히게 */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .site-menu.is-open .site-menu__scrim {
+      background: rgb(5 5 5 / 0.94);
+    }
+  }
+
+  .site-menu.is-closing .site-menu__scrim {
+    transition-duration: var(--menu-out);
+  }
+
+  /* 패널: 메뉴가 화면보다 길면 패널 안에서만 스크롤, 상단 바(닫기)는 고정 */
+  .site-menu__panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); /* 좌우 세이프 영역은 .container-wide */
+  }
+
+  .site-menu__bar {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    flex-shrink: 0;
+  }
+
+  .site-menu__body {
+    display: grid;
+    flex: 1;
+    align-content: center;
+    gap: var(--space-7);
+    padding-block: var(--space-6) var(--space-7);
+  }
+
+  @media (min-width: 56.25em) {
+    .site-menu__body {
+      grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+      align-items: end;
+    }
+  }
+
+  .site-menu__list {
+    display: grid;
+    gap: clamp(0.25rem, 1vh, 0.75rem);
+    margin: 0;
     padding: 0;
     list-style: none;
   }
 
-  .site-nav a {
+  /* 항목: 아래에서 올라오며 나타남 (60~80ms 간격) */
+  .site-menu__list li,
+  .site-menu__aside {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity var(--menu-in) var(--ease), transform var(--menu-in) var(--ease);
+  }
+
+  .site-menu__list li {
+    transition-delay: calc(120ms + var(--i) * 70ms);
+  }
+
+  .site-menu__aside {
+    transition-delay: 300ms;
+  }
+
+  .site-menu.is-open .site-menu__list li,
+  .site-menu.is-open .site-menu__aside {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* 닫기는 짧게, 간격 없이 */
+  .site-menu.is-closing .site-menu__list li,
+  .site-menu.is-closing .site-menu__aside {
+    transition-duration: var(--menu-out);
+    transition-delay: 0ms;
+  }
+
+  .site-menu__link {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--space-4);
+    min-height: var(--tap-min);
+    max-width: 100%;
+    color: var(--color-text);
+    font-size: clamp(2.5rem, 1.6rem + 4.5vw, 6rem);
+    font-weight: var(--weight-heading);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+  }
+
+  .site-menu__label {
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.12em;
+    transition: text-decoration-color var(--duration) var(--ease);
+  }
+
+  .site-menu__link:hover .site-menu__label,
+  .site-menu__link:focus-visible .site-menu__label {
+    text-decoration-color: currentColor;
+  }
+
+  .site-menu__num {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-ui);
+    letter-spacing: 0.1em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .site-menu__aside {
+    display: grid;
+    gap: var(--space-3);
+    max-width: 32rem;
+    padding-top: var(--space-5);
+    border-top: var(--border-width) solid var(--color-border-strong);
+  }
+
+  .site-menu__role {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-ui);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .site-menu__desc {
+    font-size: var(--text-lg);
+    line-height: 1.5;
+  }
+
+  .site-menu__contact {
+    display: grid;
+    gap: var(--space-2);
+    margin: var(--space-3) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .site-menu__contact a {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
     min-height: var(--tap-min);
-    min-width: var(--tap-min);
-    padding-inline: var(--space-3);
-    color: var(--color-text-muted);
-    font-weight: var(--weight-ui);
-    text-decoration: none;
-    text-underline-offset: 0.35em;
-    border-radius: var(--radius-sm);
-    transition: color var(--duration) var(--ease);
+    overflow-wrap: anywhere;
   }
 
-  .site-nav a:hover {
-    color: var(--color-text);
-    text-decoration: underline;
-    text-decoration-thickness: 2px;
+  :root {
+    --menu-line-dur: 180ms;
   }
 
-  .menu-toggle {
-    display: none;
-    flex-shrink: 0;
-    align-items: center;
-    gap: var(--space-2);
-    min-height: var(--tap-min);
-    min-width: var(--tap-min);
-    margin-right: calc(var(--space-3) * -1);
-    padding-inline: var(--space-3);
-    border: 0;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    cursor: pointer;
-    font-weight: var(--weight-ui);
-  }
-
-  .menu-toggle__icon,
-  .menu-toggle__icon::before,
-  .menu-toggle__icon::after {
-    display: block;
-    width: 18px;
-    height: 2px;
-    background: currentColor;
-    border-radius: 1px;
-    transition: transform var(--duration) var(--ease), background-color var(--duration) var(--ease);
-  }
-
-  .menu-toggle__icon {
-    position: relative;
-  }
-
-  .menu-toggle__icon::before,
-  .menu-toggle__icon::after {
-    content: '';
-    position: absolute;
-    left: 0;
-  }
-
-  .menu-toggle__icon::before {
-    top: -6px;
-  }
-
-  .menu-toggle__icon::after {
-    top: 6px;
-  }
-
-  .menu-toggle[aria-expanded='true'] .menu-toggle__icon {
-    background: transparent;
-  }
-
-  .menu-toggle[aria-expanded='true'] .menu-toggle__icon::before {
-    transform: translateY(6px) rotate(45deg);
-  }
-
-  .menu-toggle[aria-expanded='true'] .menu-toggle__icon::after {
-    transform: translateY(-6px) rotate(-45deg);
-  }
-
-  /* 좁은 화면: 메뉴 버튼으로 전환 (JS가 꺼져 있으면 메뉴를 그대로 펼쳐 둔다) */
-  @media (max-width: 39.99em) {
-    :global(.js) .menu-toggle {
-      display: inline-flex;
+  /* 모션 줄이기: 항목 이동 없이 짧은 페이드만 (메뉴 기능은 그대로) */
+  @media (prefers-reduced-motion: reduce) {
+    :root {
+      --menu-line-dur: 0ms;
     }
 
-    :global(.js) .site-nav {
-      display: none;
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      max-height: calc(100dvh - var(--header-h));
-      overflow-y: auto;
-      background: var(--color-surface);
-      border-top: var(--border-width) solid var(--color-border);
-      border-bottom: var(--border-width) solid var(--color-border);
+    .site-menu {
+      --menu-in: 120ms;
+      --menu-out: 0ms;
     }
 
-    :global(.js) .site-nav[data-open] {
-      display: block;
+    .site-menu__list li,
+    .site-menu__aside {
+      transform: none;
+      transition-delay: 0ms !important;
     }
 
-    :global(.js) .site-nav ul {
-      flex-direction: column;
-      margin: 0;
-      padding: var(--space-2) var(--gutter) var(--space-4);
-    }
-
-    :global(.js) .site-nav a {
-      display: flex;
-      justify-content: flex-start;
-      width: 100%;
-      font-size: var(--text-md);
-      color: var(--color-text);
+    .site-menu__scrim {
+      transition-duration: 120ms;
     }
   }
 </style>
 
 <script>
-  const toggle = document.querySelector<HTMLButtonElement>('[data-menu-toggle]');
-  const menu = document.querySelector<HTMLElement>('[data-menu]');
-  const mq = window.matchMedia('(max-width: 39.99em)');
-  const header = document.querySelector<HTMLElement>('[data-site-header]');
-
-  // 오버레이 헤더: 조금이라도 스크롤했거나 메뉴가 열려 있으면 불투명 배경
-  const updateSolid = () => {
-    if (!header?.hasAttribute('data-overlay')) return;
-    header.classList.toggle('is-solid', window.scrollY > 16 || Boolean(menu?.hasAttribute('data-open')));
+  /** 앵커 목적지 영역의 제목(h2/h1)에 초점. 스크롤은 이미 이동했으므로 막는다 */
+  const focusHeading = (target: HTMLElement | null) => {
+    if (!target) return;
+    const heading = target.querySelector<HTMLElement>('h2, h1') ?? target;
+    if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+    heading.focus({ preventScroll: true });
   };
+
+  // 다른 페이지(상세)의 메뉴에서 메인 앵커를 고른 경우: 새 문서에서 목적지 제목으로 초점을 넘겨받는다.
+  // 메뉴로 이동한 경우에만(세션에 남긴 표시가 현재 주소와 같을 때) — 앵커 직접 진입·뒤로가기에는 초점을 옮기지 않는다.
+  const FOCUS_KEY = 'hw-menu-focus';
+  try {
+    const want = sessionStorage.getItem(FOCUS_KEY);
+    if (want) {
+      sessionStorage.removeItem(FOCUS_KEY);
+      const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+      if (want === location.pathname + location.hash && nav?.type !== 'back_forward') {
+        // 브라우저는 DOM 준비 직후 주소의 앵커(#works)로 이동하면서 초점을 초기화한다.
+        // 그래서 앵커 처리가 끝난 뒤(load 다음 프레임)에 초점을 준다. load가 늦거나 오지 않는 환경을 위해 시간 기준 대비책도 둔다.
+        // 그 사이 사용자가 다른 곳에 초점을 옮겼다면 빼앗지 않는다.
+        const target = document.querySelector<HTMLElement>(location.hash);
+        let done = false;
+        const apply = () => {
+          if (done) return;
+          done = true;
+          const active = document.activeElement;
+          if (!active || active === document.body) focusHeading(target);
+        };
+        if (document.readyState === 'complete') requestAnimationFrame(apply);
+        else window.addEventListener('load', () => requestAnimationFrame(apply), { once: true });
+        window.setTimeout(apply, 600);
+      }
+    }
+  } catch {
+    /* 저장소를 쓸 수 없으면 초점 전달만 생략 (이동은 정상) */
+  }
+
+  const header = document.querySelector<HTMLElement>('[data-site-header]');
+  const toggle = document.querySelector<HTMLButtonElement>('[data-menu-toggle]');
+  const dialog = document.querySelector<HTMLDialogElement>('[data-menu]');
+
+  // 오버레이 헤더: 조금이라도 스크롤하면 불투명 배경
   if (header?.hasAttribute('data-overlay')) {
     let ticking = false;
+    const update = () => header.classList.toggle('is-solid', window.scrollY > 16);
     window.addEventListener(
       'scroll',
       () => {
         if (ticking) return;
         ticking = true;
         requestAnimationFrame(() => {
-          updateSolid();
+          update();
           ticking = false;
         });
       },
       { passive: true },
     );
-    updateSolid();
+    update();
   }
 
-  if (toggle && menu) {
-    const label = toggle.querySelector('.menu-toggle__label');
-    const isOpen = () => menu.hasAttribute('data-open');
+  if (toggle && dialog) {
+    const closeBtn = dialog.querySelector<HTMLButtonElement>('[data-menu-close]')!;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const OPEN_MS = 600;
+    const CLOSE_MS = 220;
 
-    const setOpen = (open: boolean, returnFocus = false) => {
-      toggle.setAttribute('aria-expanded', String(open));
-      if (label) label.textContent = open ? '메뉴 닫기' : '메뉴';
-      menu.toggleAttribute('data-open', open);
-      updateSolid();
-      if (open) menu.querySelector('a')?.focus();
-      else if (returnFocus) toggle.focus();
+    type State = 'closed' | 'opening' | 'open' | 'closing';
+    let state: State = 'closed';
+    let timer = 0;
+    let savedScrollY = 0;
+
+    const announce = (open: boolean) => document.dispatchEvent(new CustomEvent('site-menu:toggle', { detail: { open } }));
+
+    const open = () => {
+      if (state === 'open' || state === 'opening') return;
+      window.clearTimeout(timer);
+      if (!dialog.open) {
+        savedScrollY = window.scrollY;
+        document.documentElement.style.overflow = 'hidden';
+        dialog.showModal();
+        announce(true);
+      }
+      dialog.classList.remove('is-closing');
+      void dialog.offsetWidth; // 시작 상태를 확정한 뒤 열림 전환
+      dialog.classList.add('is-open');
+      toggle.setAttribute('aria-expanded', 'true');
+      state = 'opening';
+      dialog.querySelector<HTMLElement>('.site-menu__link')?.focus();
+      timer = window.setTimeout(() => (state = 'open'), reduce.matches ? 0 : OPEN_MS);
     };
 
-    toggle.addEventListener('click', () => setOpen(!isOpen()));
+    /** restoreFocus: 버튼으로 초점 복원 / restoreScroll: 연 시점의 스크롤 위치로 / immediate: 애니메이션 없이 */
+    const close = ({ restoreFocus = true, restoreScroll = true, immediate = false } = {}) => {
+      if (state === 'closed') return;
+      window.clearTimeout(timer);
+      dialog.classList.remove('is-open');
+      dialog.classList.add('is-closing');
+      toggle.setAttribute('aria-expanded', 'false');
+      state = 'closing';
+      const finish = () => {
+        dialog.classList.remove('is-closing');
+        if (dialog.open) dialog.close();
+        document.documentElement.style.overflow = '';
+        if (restoreScroll) window.scrollTo({ top: savedScrollY, behavior: 'instant' as ScrollBehavior });
+        state = 'closed';
+        if (restoreFocus) toggle.focus({ preventScroll: true });
+        announce(false);
+      };
+      if (immediate || reduce.matches) finish();
+      else timer = window.setTimeout(finish, CLOSE_MS);
+    };
 
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && isOpen()) setOpen(false, true);
+    toggle.addEventListener('click', open);
+    closeBtn.addEventListener('click', () => close());
+
+    // Escape: 브라우저 기본 즉시 닫기 대신 같은 닫기 동작으로 (잠금·초점 정리)
+    dialog.addEventListener('cancel', (e) => {
+      e.preventDefault();
+      close();
     });
 
-    // 메뉴 항목 선택 시 닫기
-    menu.addEventListener('click', (e) => {
-      if ((e.target as Element).closest('a')) setOpen(false);
+    // 메뉴 안에서 Tab 순환
+    dialog.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const items = [...dialog.querySelectorAll<HTMLElement>('a[href], button')];
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     });
 
-    // 메뉴 바깥을 누르면 닫기
-    document.addEventListener('click', (e) => {
-      const t = e.target as Node;
-      if (isOpen() && !menu.contains(t) && !toggle.contains(t)) setOpen(false);
+    // 메뉴 항목: 같은 페이지 앵커면 닫고 이동한 뒤 목적지 제목에 초점.
+    // 다른 페이지면 닫고 이동하며, 앵커가 있으면 새 문서가 목적지 제목에 초점을 주도록 표시를 남긴다.
+    dialog.addEventListener('click', (e) => {
+      const a = (e.target as Element).closest<HTMLAnchorElement>('a[data-menu-link]');
+      if (!a) return;
+      const url = new URL(a.href);
+      const samePage = url.pathname === location.pathname;
+      if (samePage && url.hash) {
+        e.preventDefault();
+        close({ restoreFocus: false, restoreScroll: true, immediate: true });
+        const target = document.querySelector<HTMLElement>(url.hash);
+        if (!target) return;
+        history.pushState(null, '', url.hash);
+        target.scrollIntoView({ behavior: reduce.matches ? 'auto' : 'smooth', block: 'start' });
+        focusHeading(target);
+      } else {
+        if (url.hash) {
+          try {
+            sessionStorage.setItem(FOCUS_KEY, url.pathname + url.hash);
+          } catch {
+            /* 저장소 불가: 이동만 한다 */
+          }
+        }
+        close({ restoreFocus: false, restoreScroll: false, immediate: true });
+      }
     });
 
-    // 키보드 초점이 메뉴 밖으로 나가면 닫기
-    menu.addEventListener('focusout', (e) => {
-      const next = e.relatedTarget as Node | null;
-      if (isOpen() && next && !menu.contains(next) && next !== toggle) setOpen(false);
+    // 뒤로가기 등으로 페이지가 캐시에서 복원될 때 메뉴가 열린 채 남지 않게
+    window.addEventListener('pageshow', () => {
+      if (state !== 'closed') close({ restoreFocus: false, immediate: true });
     });
-
-    // 화면이 넓어지거나 좁아지면 초기 상태로
-    mq.addEventListener('change', () => setOpen(false));
   }
 </script>
