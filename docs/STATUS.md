@@ -152,8 +152,12 @@ SITE_URL=https://<계정>.github.io BASE_PATH=hwhwang-portfolio npm run build
 
 ## 브랜치 · 커밋 · PR (REQ-002·003)
 - 브랜치: `feature/req-002-003-bw-hero` (REQ-001 브랜치 `feature/req-001-portfolio-base` 8d1d372 위에서 시작)
-- 커밋: (아래 커밋 후 갱신)
-- PR: (생성 후 갱신)
+- 커밋
+  - `40266d5` docs: REQ-002·REQ-003 요청과 확정 보완 추가 (PLAN, REQUESTS 원본 그대로)
+  - `10ac101` feat: 블랙·화이트 테마, Google Sans, 영상 배경 히어로
+  - `ff71fd9` docs: REQ-002·003 결과 기록
+  - 이 STATUS.md 커밋·PR 정보 갱신 커밋
+- PR: https://github.com/OdysseyHW/hwhwang-portfolio/pull/2 (base: `feature/req-001-portfolio-base` — PR #1 위에 쌓은 PR. PR #1 병합 후 base를 `main`으로 변경)
 - main 직접 병합·강제 푸시·외부 배포: 하지 않음
 
 ## 구현 기능 (REQ-002·003)
