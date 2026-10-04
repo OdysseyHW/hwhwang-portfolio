@@ -27,7 +27,7 @@ npm run check        # 타입·콘텐츠 스키마 검사
 ```bash
 npx playwright install chromium firefox webkit   # 최초 1회 (브라우저 약 1.2GB)
 npm run build
-npm run verify                                   # 3개 브라우저 × 14개 화면 너비 점검 (Chromium·Firefox 356개, WebKit 347개 항목)
+npm run verify                                   # 3개 브라우저 × 14개 화면 너비 점검 (Chromium·Firefox 359개, WebKit 357개 항목)
 BROWSERS=chromium SHOTS=1 npm run verify          # 크롬 계열만 + verify-report/에 스크린샷 저장
 npm run screenshots                              # 검토용 화면 캡처 → docs/screenshots/
 npm run record                                   # 입장·메뉴 모션 화면 녹화(약 9초) → docs/recordings/
@@ -98,7 +98,7 @@ scripts/screenshots.mjs         ← 검토용 화면 캡처 → docs/screenshots
 | `focalPoint` / `focalPointMobile` | 화면 비율에 따라 잘릴 때의 중심 (예: `'50% 40%'`) |
 | `ctaLabel` / `ctaTarget` | 버튼 문구와 이동 위치 (기본 `#works`) |
 | `monochrome` | `true`면 히어로에서만 흑백 필터. 프로젝트 상세의 원본 색에는 영향 없음 |
-| `sampleLabel` | 임시 영상 표시(`SAMPLE VIDEO`). 실제 영상으로 바꾸면 `undefined`로 지웁니다 |
+| `sampleLabel` | 임시 영상일 때만 표시(예: `SAMPLE VIDEO`). 현재는 사용자 제공 4Ground9 영상이라 `undefined`(표시 없음) |
 
 **입장 연출 (첫 진입)** — `src/components/Intro.astro`
 - 같은 탭에서 메인에 처음 들어올 때만 약 1.1초 동안 검정 화면 가운데에 `site.name`이 보였다가 위로 걷히고, 제목 각 행 → 소개·헤더·버튼 순으로 나타납니다.
@@ -117,7 +117,9 @@ scripts/screenshots.mjs         ← 검토용 화면 캡처 → docs/screenshots
 - **선택적 줄바꿈(soft hyphen):** 영문 긴 단어에 `\u00AD`를 넣으면, 글자를 키웠을 때만 그 위치에서 하이픈과 함께 끊깁니다 (현재 `'DE\u00ADSIG\u00ADNED'` → 필요할 때만 `DE-` / `SIG-` / `NED`). 화면에 들어가면 보이지 않습니다. 새 문구로 바꿀 때는 지금 위치를 그대로 옮기지 말고 새 단어의 음절에 맞게 다시 넣습니다. 넣지 않아도 넘치지는 않지만, 마지막 글자 하나만 다음 줄로 갈 수 있습니다. 한글에는 필요 없습니다.
 - 바꾼 뒤 `npm run verify`로 넘침·겹침을 확인합니다 (영문 짧음·긴 단어·한글·혼합 문구를 임시로 넣어 보는 검사가 포함되어 있습니다).
 
-**최종 영상 교체 순서**
+**현재 배경 영상:** 사용자 제공 4Ground9 영상 2편(CharacterIntroduce → PV_Openning)을 이어 붙인 무음 MP4 — 데스크톱 1080p 10.6MB, 모바일 720p 5.3MB, 37.6초 반복. 출처·인코딩 설정·다시 만드는 명령은 [docs/HERO-VIDEO.md](docs/HERO-VIDEO.md).
+
+**영상 교체 순서**
 1. 영상 파일을 `public/videos/`에 넣습니다 (예: `showreel.mp4`, 모바일용 `showreel-mobile.mp4`).
 2. `hero.ts`의 `videoDesktop`·`videoMobile` 경로를 바꾸고, `sampleLabel`을 지웁니다.
 3. 영상 첫 장면과 비슷한 포스터 이미지를 `src/assets/` 등에 넣고 `posterDesktop`(필요하면 `posterMobile`)의 `import` 경로를 바꿉니다.
@@ -308,8 +310,8 @@ Netlify, Cloudflare Pages, Vercel 등에서는 빌드 명령 `npm run build`, �
   - `mobile-lobby-menu-ux`
   - `inventory-shop-ui` (선택 항목을 비운 예시, 긴 제목 확인용)
 - [ ] 샘플 이미지(`images/*.svg`) — 이 사이트용으로 직접 만든 도형 이미지이며 모서리에 `SAMPLE` 표시가 있습니다
-- [ ] `src/data/hero.ts` — 임시 헤드라인(`GAME UI / DESIGNED / FOR PLAY`)·소개 문구, 임시 배경 영상과 포스터(RPG 샘플 재사용), `sampleLabel: 'SAMPLE VIDEO'`
-- [ ] `public/videos/rpg-hud-interaction.webm` — 샘플 영상. 메인 히어로 배경과 RPG 샘플 상세에서 함께 사용하므로, 둘 다 교체한 뒤 삭제
+- [ ] `src/data/hero.ts` — 임시 헤드라인(`GAME UI / DESIGNED / FOR PLAY`)·소개 문구 (배경 영상은 사용자 제공 4Ground9 영상으로 교체됨)
+- [ ] `public/videos/rpg-hud-interaction.webm` — RPG 샘플 상세의 샘플 영상. 샘플 프로젝트를 지우면 함께 삭제 (메인 히어로에서는 더 이상 쓰지 않음)
 - [ ] `public/og-default.png` — 공유 이미지에 "Your Name"과 임시 헤드라인이 들어 있습니다
 - [ ] `public/favicon.svg`, `public/apple-touch-icon.png` — 원하면 교체
 - [ ] 모든 프로젝트의 `sample: true` → 실제 작업물은 `false`로 바꾸거나 줄 삭제
