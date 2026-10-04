@@ -1,0 +1,273 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import { site } from '../data/site';
+import { getFeaturedProjects } from '../lib/projects';
+import { withBase } from '../lib/url';
+
+const projects = await getFeaturedProjects();
+// 이력서: 외부 URL은 그대로, public/ 안의 파일(예: resume.pdf)은 배포 경로를 붙인다
+const resumeHref = site.resumeUrl ? (/^https?:\/\//.test(site.resumeUrl) ? site.resumeUrl : withBase(site.resumeUrl)) : undefined;
+const hasContact = Boolean(site.email) || site.socialLinks.length > 0 || Boolean(site.resumeUrl);
+---
+
+<BaseLayout>
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="container">
+      <p class="eyebrow">{site.jobTitle}</p>
+      <h1 id="hero-title" class="hero__title">{site.name}</h1>
+      <p class="hero__intro">{site.intro}</p>
+      <div class="hero__actions">
+        <a class="button button--primary" href="#works">작업물 보기</a>
+        {hasContact && <a class="button" href="#contact">연락하기</a>}
+      </div>
+    </div>
+  </section>
+
+  <section id="works" class="section section--works" aria-labelledby="works-title">
+    <div class="container">
+      <header class="section-header">
+        <span class="eyebrow">Works</span>
+        <h2 id="works-title" class="section-title">대표 프로젝트</h2>
+      </header>
+      <ul class="project-grid">
+        {
+          projects.map((project, i) => (
+            <li>
+              <ProjectCard project={project} eager={i < 3} />
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <section id="about" class="section" aria-labelledby="about-title">
+    <div class="container about">
+      <header class="section-header">
+        <span class="eyebrow">About</span>
+        <h2 id="about-title" class="section-title">소개</h2>
+      </header>
+
+      <div class="about__grid">
+        <div class="prose about__text">
+          {site.about.map((p) => <p>{p}</p>)}
+        </div>
+
+        <div class="about__facts">
+          {
+            site.skills.length > 0 && (
+              <div class="fact">
+                <h3 class="fact__title">전문 분야</h3>
+                <ul class="tag-list">
+                  {site.skills.map((s) => (
+                    <li class="tag">{s}</li>
+                  ))}
+                </ul>
+              </div>
+            )
+          }
+          {
+            site.tools.length > 0 && (
+              <div class="fact">
+                <h3 class="fact__title">사용 도구</h3>
+                <ul class="tag-list">
+                  {site.tools.map((t) => (
+                    <li class="tag">{t}</li>
+                  ))}
+                </ul>
+              </div>
+            )
+          }
+          {
+            site.experience.length > 0 && (
+              <div class="fact">
+                <h3 class="fact__title">경력</h3>
+                <ol class="timeline">
+                  {site.experience.map((x) => (
+                    <li>
+                      <span class="timeline__period">{x.period}</span>
+                      <strong class="timeline__title">{x.title}</strong>
+                      {x.description && <p class="muted">{x.description}</p>}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {
+    hasContact && (
+      <section id="contact" class="section" aria-labelledby="contact-title">
+        <div class="container">
+          <header class="section-header">
+            <span class="eyebrow">Contact</span>
+            <h2 id="contact-title" class="section-title">연락처</h2>
+          </header>
+          <p class="prose contact__lead">채용 및 협업 문의는 이메일로 보내 주세요.</p>
+          <ul class="contact__list">
+            {site.email && (
+              <li>
+                <a class="button button--primary contact__email" href={`mailto:${site.email}`}>
+                  {site.email}
+                </a>
+              </li>
+            )}
+            {site.socialLinks.map((l) => (
+              <li>
+                <a class="button" href={l.href} target="_blank" rel="noopener noreferrer">
+                  {l.label}
+                  <span class="visually-hidden"> (새 탭에서 열기)</span>
+                </a>
+              </li>
+            ))}
+            {site.resumeUrl && (
+              <li>
+                <a class="button" href={resumeHref} target="_blank" rel="noopener">
+                  이력서 보기<span class="visually-hidden"> (새 탭에서 열기)</span>
+                </a>
+              </li>
+            )}
+          </ul>
+        </div>
+      </section>
+    )
+  }
+</BaseLayout>
+
+<style>
+  .hero {
+    padding-block: clamp(2.5rem, 1.5rem + 5vw, 5.5rem) clamp(1.5rem, 1rem + 2vw, 2.5rem);
+  }
+
+  .hero__title {
+    font-size: var(--text-2xl);
+  }
+
+  .hero__intro {
+    max-width: 40ch;
+    margin-top: var(--space-4);
+    color: var(--color-text-muted);
+    font-size: var(--text-md);
+  }
+
+  .hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin-top: var(--space-5);
+  }
+
+  .section--works {
+    padding-top: var(--space-6);
+  }
+
+  /*
+   * 프로젝트 목록: 1열 → 2열(600px~, 카드 최소 폭 확보 시) → 3열(1200px~)
+   * minmax의 최소값에 '최대 열 수' 기준 폭을 넣어 열 수 상한을 둔다.
+   */
+  .project-grid {
+    --cols: 1;
+    --gap: var(--space-5);
+    --card-min: 16rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(max(min(100%, var(--card-min)), (100% - (var(--cols) - 1) * var(--gap)) / var(--cols)), 1fr));
+    gap: var(--gap);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 37.5em) {
+    .project-grid {
+      --cols: 2;
+    }
+  }
+
+  @media (min-width: 75em) {
+    .project-grid {
+      --cols: 3;
+    }
+  }
+
+  .about__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-7);
+  }
+
+  @media (min-width: 56.25em) {
+    .about__grid {
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    }
+  }
+
+  .about__text {
+    font-size: var(--text-md);
+  }
+
+  .about__facts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-6);
+    align-content: start;
+  }
+
+  .fact__title {
+    margin-bottom: var(--space-3);
+    font-size: var(--text-base);
+    color: var(--color-text-muted);
+  }
+
+  .timeline {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .timeline li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    overflow-wrap: anywhere;
+    gap: var(--space-1);
+    padding-left: var(--space-4);
+    border-left: 2px solid var(--color-border-strong);
+  }
+
+  .timeline__period {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .contact__lead {
+    color: var(--color-text-muted);
+    font-size: var(--text-md);
+  }
+
+  .contact__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin: var(--space-5) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .contact__list li {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .contact__email {
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
+</style>

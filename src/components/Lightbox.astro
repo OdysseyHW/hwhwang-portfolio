@@ -1,0 +1,458 @@
+---
+/**
+ * 작업물 확대 뷰어. 페이지에 하나만 넣으면 [data-zoom] 버튼을 모두 연결한다.
+ * - 화면 맞춤 / 확대·축소 버튼, 마우스 휠, 드래그 이동, 터치 핀치·이동, 더블클릭(탭) 확대
+ * - 키보드: + / - 확대·축소, 0 화면 맞춤, 1 원본 크기, 방향키 이동, Esc 닫기
+ */
+---
+
+<dialog class="lightbox" aria-labelledby="lightbox-title" aria-describedby="lightbox-help" data-lightbox>
+  <div class="lightbox__bar">
+    <h2 id="lightbox-title" class="lightbox__title" data-lb-title>이미지 확대 보기</h2>
+    <div class="lightbox__controls" role="group" aria-label="확대 보기 조작">
+      <button type="button" class="lb-btn" data-lb="out" aria-label="축소">
+        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4 9.25h12v1.5H4z" fill="currentColor"></path></svg>
+      </button>
+      <output class="lightbox__scale" data-lb-scale aria-live="polite" aria-label="현재 배율">100%</output>
+      <button type="button" class="lb-btn" data-lb="in" aria-label="확대">
+        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M9.25 4h1.5v5.25H16v1.5h-5.25V16h-1.5v-5.25H4v-1.5h5.25z" fill="currentColor"></path></svg>
+      </button>
+      <button type="button" class="lb-btn lb-btn--text" data-lb="fit">화면 맞춤</button>
+      <button type="button" class="lb-btn lb-btn--text" data-lb="actual">원본 크기</button>
+      <a class="lb-btn lb-btn--text" data-lb-original href="#" target="_blank" rel="noopener">원본 열기<span class="visually-hidden"> (새 탭)</span></a>
+      <button type="button" class="lb-btn lb-btn--close" data-lb="close" aria-label="닫기">
+        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="m5.05 4 4.95 4.95L14.95 4 16 5.05 11.05 10 16 14.95 14.95 16 10 11.05 5.05 16 4 14.95 8.95 10 4 5.05z" fill="currentColor"></path></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="lightbox__viewport" data-lb-viewport tabindex="0" role="img" aria-roledescription="확대 가능한 이미지" aria-label="">
+    <img class="lightbox__img" data-lb-img alt="" draggable="false" />
+  </div>
+
+  <div class="lightbox__footer">
+    <p class="lightbox__caption" data-lb-caption></p>
+    <p id="lightbox-help" class="lightbox__help">드래그로 이동 · 휠/핀치/버튼으로 확대 · 키보드 +/−, 0(맞춤), 방향키, Esc(닫기)</p>
+  </div>
+</dialog>
+
+<style>
+  .lightbox {
+    /* 스크롤바 여백(scrollbar-gutter)까지 덮도록 뷰포트 단위 사용 */
+    width: 100vw;
+    max-width: none;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: var(--color-overlay);
+    color: var(--color-text);
+    overflow: hidden;
+  }
+
+  .lightbox[open] {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .lightbox::backdrop {
+    background: var(--color-overlay);
+  }
+
+  .lightbox__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-4);
+    padding: var(--space-2) var(--space-3);
+    border-bottom: var(--border-width) solid var(--color-border);
+    background: var(--color-bg);
+  }
+
+  .lightbox__title {
+    flex: 1 1 12rem;
+    min-width: 0;
+    font-size: var(--text-base);
+    font-weight: 600;
+  }
+
+  .lightbox__controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .lb-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
+    padding: 0 var(--space-2);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .lb-btn:hover {
+    background: var(--color-surface-raised);
+    border-color: var(--color-border-strong);
+  }
+
+  .lb-btn--text {
+    padding-inline: var(--space-3);
+  }
+
+  .lb-btn--close {
+    margin-left: var(--space-2);
+  }
+
+  .lightbox__scale {
+    min-width: 4.5ch;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    font-size: var(--text-sm);
+  }
+
+  .lightbox__viewport {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    touch-action: none; /* 뷰어 내부에서만 제스처를 직접 처리 */
+    cursor: grab;
+    user-select: none;
+  }
+
+  .lightbox__viewport.is-dragging {
+    cursor: grabbing;
+  }
+
+  .lightbox__viewport:focus-visible {
+    outline-offset: -3px;
+  }
+
+  .lightbox__img {
+    position: absolute;
+    left: 0;
+    top: 0;
+    max-width: none;
+    transform-origin: 0 0;
+    background: var(--color-surface-raised);
+  }
+
+  .lightbox__footer {
+    padding: var(--space-2) var(--space-4) var(--space-3);
+    border-top: var(--border-width) solid var(--color-border);
+    background: var(--color-bg);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+  }
+
+  .lightbox__caption:empty {
+    display: none;
+  }
+
+  .lightbox__help {
+    color: var(--color-text-muted);
+  }
+
+  /* 낮은 화면(모바일 가로 등)에서는 도움말을 숨겨 이미지 공간 확보 — 조작은 버튼으로 모두 가능 */
+  @media (max-height: 30em) {
+    .lightbox__help {
+      display: none;
+    }
+
+    .lightbox__footer:has(.lightbox__caption:empty) {
+      display: none;
+    }
+
+    .lightbox__bar {
+      padding-block: var(--space-1);
+    }
+  }
+</style>
+
+<script>
+  const dialog = document.querySelector<HTMLDialogElement>('[data-lightbox]');
+
+  if (dialog) {
+    const viewport = dialog.querySelector<HTMLElement>('[data-lb-viewport]')!;
+    const img = dialog.querySelector<HTMLImageElement>('[data-lb-img]')!;
+    const titleEl = dialog.querySelector<HTMLElement>('[data-lb-title]')!;
+    const captionEl = dialog.querySelector<HTMLElement>('[data-lb-caption]')!;
+    const scaleEl = dialog.querySelector<HTMLOutputElement>('[data-lb-scale]')!;
+    const originalLink = dialog.querySelector<HTMLAnchorElement>('[data-lb-original]')!;
+
+    let natW = 1;
+    let natH = 1;
+    let scale = 1;
+    let tx = 0;
+    let ty = 0;
+    let fitScale = 1;
+    let isFit = true;
+    let trigger: HTMLElement | null = null;
+    let savedScrollY = 0;
+
+    const MAX_SCALE = 6;
+    const minScale = () => Math.min(fitScale, 1);
+    const maxScale = () => Math.max(MAX_SCALE, fitScale * 4);
+    const vpSize = () => ({ w: viewport.clientWidth, h: viewport.clientHeight });
+
+    function clampPan() {
+      const { w, h } = vpSize();
+      const sw = natW * scale;
+      const sh = natH * scale;
+      tx = sw <= w ? (w - sw) / 2 : Math.min(0, Math.max(w - sw, tx));
+      ty = sh <= h ? (h - sh) / 2 : Math.min(0, Math.max(h - sh, ty));
+    }
+
+    function render() {
+      clampPan();
+      img.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+      scaleEl.value = `${Math.round(scale * 100)}%`;
+    }
+
+    function fit() {
+      const { w, h } = vpSize();
+      fitScale = Math.min(w / natW, h / natH);
+      scale = fitScale;
+      isFit = true;
+      render();
+    }
+
+    /** (px, py) 지점을 기준으로 배율 변경 */
+    function zoomTo(next: number, px?: number, py?: number) {
+      const { w, h } = vpSize();
+      const cx = px ?? w / 2;
+      const cy = py ?? h / 2;
+      const clamped = Math.min(maxScale(), Math.max(minScale(), next));
+      tx = cx - (cx - tx) * (clamped / scale);
+      ty = cy - (cy - ty) * (clamped / scale);
+      scale = clamped;
+      isFit = Math.abs(scale - fitScale) < 0.001;
+      render();
+    }
+
+    const zoomBy = (factor: number, px?: number, py?: number) => zoomTo(scale * factor, px, py);
+
+    function pan(dx: number, dy: number) {
+      tx += dx;
+      ty += dy;
+      render();
+    }
+
+    // ---------- 열기 / 닫기 ----------
+
+    function open(btn: HTMLElement) {
+      trigger = btn;
+      const d = btn.dataset;
+      natW = Number(d.zoomWidth) || 1;
+      natH = Number(d.zoomHeight) || 1;
+      img.width = natW;
+      img.height = natH;
+      img.style.width = `${natW}px`;
+      img.style.height = `${natH}px`;
+      img.alt = d.zoomAlt ?? '';
+      img.src = d.zoomSrc ?? '';
+      viewport.setAttribute('aria-label', d.zoomAlt ?? '');
+      titleEl.textContent = d.zoomTitle || d.zoomAlt || '이미지 확대 보기';
+      captionEl.textContent = d.zoomCaption ?? '';
+      originalLink.href = d.zoomSrc ?? '#';
+
+      // 배경 스크롤 잠금 (현재 위치 기억)
+      savedScrollY = window.scrollY;
+      document.documentElement.style.overflow = 'hidden';
+
+      dialog!.showModal();
+      fit();
+      dialog!.querySelector<HTMLElement>('[data-lb="close"]')?.focus();
+    }
+
+    function close() {
+      if (dialog!.open) dialog!.close();
+    }
+
+    // Esc(cancel)·닫기 버튼 모두 close 이벤트로 모아서 복원 처리
+    dialog.addEventListener('close', () => {
+      document.documentElement.style.overflow = '';
+      window.scrollTo({ top: savedScrollY, behavior: 'instant' as ScrollBehavior });
+      img.removeAttribute('src');
+      trigger?.focus({ preventScroll: true });
+      trigger = null;
+    });
+
+    document.addEventListener('click', (e) => {
+      const btn = (e.target as Element).closest<HTMLElement>('[data-zoom]');
+      if (btn) open(btn);
+    });
+
+    dialog.querySelector('[data-lb="close"]')!.addEventListener('click', close);
+    dialog.querySelector('[data-lb="in"]')!.addEventListener('click', () => zoomBy(1.5));
+    dialog.querySelector('[data-lb="out"]')!.addEventListener('click', () => zoomBy(1 / 1.5));
+    dialog.querySelector('[data-lb="fit"]')!.addEventListener('click', fit);
+    dialog.querySelector('[data-lb="actual"]')!.addEventListener('click', () => zoomTo(1));
+
+    // ---------- 키보드 ----------
+
+    dialog.addEventListener('keydown', (e) => {
+      const target = e.target as HTMLElement;
+      const step = 80;
+
+      // 대화상자 안에서 Tab 순환 (초점이 밖으로 나가지 않도록)
+      if (e.key === 'Tab') {
+        const focusables = [...dialog.querySelectorAll<HTMLElement>('button, a[href], [tabindex="0"]')];
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+        return;
+      }
+
+      if (target.tagName === 'A') return;
+      switch (e.key) {
+        case '+':
+        case '=':
+          zoomBy(1.25);
+          break;
+        case '-':
+        case '_':
+          zoomBy(1 / 1.25);
+          break;
+        case '0':
+          fit();
+          break;
+        case '1':
+          zoomTo(1);
+          break;
+        case 'ArrowLeft':
+          pan(step, 0);
+          break;
+        case 'ArrowRight':
+          pan(-step, 0);
+          break;
+        case 'ArrowUp':
+          pan(0, step);
+          break;
+        case 'ArrowDown':
+          pan(0, -step);
+          break;
+        default:
+          return;
+      }
+      e.preventDefault();
+    });
+
+    // ---------- 마우스 휠 ----------
+
+    viewport.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        const r = viewport.getBoundingClientRect();
+        const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+        zoomBy(Math.exp(-delta * 0.0015), e.clientX - r.left, e.clientY - r.top);
+      },
+      { passive: false },
+    );
+
+    // ---------- 포인터 (마우스 드래그 / 터치 이동·핀치) ----------
+
+    const pointers = new Map<number, { x: number; y: number }>();
+    let pinchDist = 0;
+    let lastTap = 0;
+    let lastPointerType = '';
+    let downAt = { x: 0, y: 0 };
+
+    const local = (e: PointerEvent) => {
+      const r = viewport.getBoundingClientRect();
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    };
+
+    viewport.addEventListener('pointerdown', (e) => {
+      viewport.setPointerCapture(e.pointerId);
+      lastPointerType = e.pointerType;
+      downAt = local(e);
+      pointers.set(e.pointerId, downAt);
+      viewport.classList.add('is-dragging');
+      if (pointers.size === 2) {
+        const [a, b] = [...pointers.values()];
+        pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
+      }
+    });
+
+    viewport.addEventListener('pointermove', (e) => {
+      const prev = pointers.get(e.pointerId);
+      if (!prev) return;
+      const cur = local(e);
+
+      if (pointers.size === 1) {
+        pan(cur.x - prev.x, cur.y - prev.y);
+      } else if (pointers.size === 2) {
+        pointers.set(e.pointerId, cur);
+        const [a, b] = [...pointers.values()];
+        const dist = Math.hypot(a.x - b.x, a.y - b.y);
+        if (pinchDist > 0) zoomBy(dist / pinchDist, (a.x + b.x) / 2, (a.y + b.y) / 2);
+        pinchDist = dist;
+        return;
+      }
+      pointers.set(e.pointerId, cur);
+    });
+
+    const endPointer = (e: PointerEvent) => {
+      if (!pointers.has(e.pointerId)) return;
+      pointers.delete(e.pointerId);
+      if (pointers.size < 2) pinchDist = 0;
+      if (pointers.size === 0) viewport.classList.remove('is-dragging');
+    };
+    viewport.addEventListener('pointerup', (e) => {
+      endPointer(e);
+      // 터치 더블탭: 맞춤 ↔ 2배
+      const p = local(e);
+      const moved = Math.hypot(p.x - downAt.x, p.y - downAt.y) > 10;
+      if (e.pointerType === 'touch' && !moved && pointers.size === 0) {
+        const now = performance.now();
+        if (now - lastTap < 300) {
+          toggleZoom(e);
+          lastTap = 0;
+        } else lastTap = now;
+      }
+    });
+    viewport.addEventListener('pointercancel', endPointer);
+
+    function toggleZoom(e: MouseEvent) {
+      const r = viewport.getBoundingClientRect();
+      if (isFit) zoomTo(Math.max(fitScale * 2.5, 1), e.clientX - r.left, e.clientY - r.top);
+      else fit();
+    }
+    viewport.addEventListener('dblclick', (e) => {
+      if (lastPointerType !== 'touch') toggleZoom(e);
+    });
+
+    // 화면 회전·크기 변경 시 맞춤 상태 유지, 아니면 위치만 보정
+    new ResizeObserver(() => {
+      if (!dialog.open) return;
+      if (isFit) fit();
+      else {
+        const { w, h } = vpSize();
+        fitScale = Math.min(w / natW, h / natH);
+        render();
+      }
+    }).observe(viewport);
+  }
+</script>
