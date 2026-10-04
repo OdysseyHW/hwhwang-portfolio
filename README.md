@@ -27,7 +27,7 @@ npm run check        # 타입·콘텐츠 스키마 검사
 ```bash
 npx playwright install chromium firefox webkit   # 최초 1회 (브라우저 약 1.2GB)
 npm run build
-npm run verify                                   # 3개 브라우저 × 14개 화면 너비 점검 (Chromium·Firefox 347개, WebKit 338개 항목)
+npm run verify                                   # 3개 브라우저 × 14개 화면 너비 점검 (Chromium·Firefox 356개, WebKit 347개 항목)
 BROWSERS=chromium SHOTS=1 npm run verify          # 크롬 계열만 + verify-report/에 스크린샷 저장
 npm run screenshots                              # 검토용 화면 캡처 → docs/screenshots/
 npm run record                                   # 입장·메뉴 모션 화면 녹화(약 9초) → docs/recordings/
@@ -259,6 +259,7 @@ sections:                             # 상세 본문 (위에서부터 순서대
 - 글꼴을 불러오지 못해도 `font-display: swap`으로 시스템 글꼴이 먼저 보이므로 내용은 계속 읽을 수 있습니다.
 - Google Sans는 라틴 문자만 남긴 파일입니다. 다른 문자(예: 베트남어 성조)를 쓰려면 원본 배포본에서 범위를 넓혀 다시 만들어야 합니다 (FONTS.md 참고).
 - 여백(`--space-*`), 글자 크기(`--text-*`), 최대 폭(`--content-max`, 약 1280px), 읽기 폭(`--reading-max`, 65ch), 카드 비율(`--card-ratio`)도 같은 파일에 있습니다.
+- **화면 폭 레이아웃:** 헤더·메인 히어로·전체 화면 메뉴는 최대 폭 없이 화면 폭을 쓰며 좌우 여백은 `--gutter-wide`(`clamp(1rem, 4vw, 10rem)`, 1920px에서 약 77px)입니다. 클래스는 `.container-wide`. 프로젝트 목록·상세 본문은 읽기 폭을 위해 `.container`(최대 약 1280px)를 그대로 씁니다.
 
 ---
 
