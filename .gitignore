@@ -147,3 +147,8 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Astro / 점검 결과
+.astro/
+verify-report/
+test-results/

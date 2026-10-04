@@ -1,0 +1,19 @@
+---
+import { parseBody } from '../lib/projects';
+
+interface Props {
+  text?: string;
+  class?: string;
+}
+
+const { text, class: className } = Astro.props;
+const blocks = parseBody(text);
+---
+
+{
+  blocks.length > 0 && (
+    <div class:list={['prose', className]}>
+      {blocks.map((b) => (b.type === 'p' ? <p>{b.text}</p> : <ul>{b.items.map((i) => <li>{i}</li>)}</ul>))}
+    </div>
+  )
+}

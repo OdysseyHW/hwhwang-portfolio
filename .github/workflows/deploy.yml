@@ -1,0 +1,49 @@
+# GitHub Pages 배포 (저장소 Settings → Pages → Source: GitHub Actions 로 설정한 뒤 사용)
+# 배포 주소와 하위 경로는 actions/configure-pages가 알려 주는 값을 그대로 사용한다.
+#   - username.github.io 저장소: 루트(/) 배포
+#   - 그 외 저장소: /저장소이름/ 하위 경로 배포
+#   - 사용자 지정 도메인: 해당 도메인 루트
+name: Deploy to GitHub Pages
+
+# 자동 배포 금지(docs/REQUESTS.md) — Actions 탭에서 수동으로만 실행한다.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - id: pages
+        uses: actions/configure-pages@v5
+      - run: npm ci
+      - run: npm run build
+        env:
+          SITE_URL: ${{ steps.pages.outputs.origin }}
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

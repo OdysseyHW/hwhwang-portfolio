@@ -1,0 +1,30 @@
+# 샘플 프로젝트 — 실제 작업물로 교체하세요.
+# 이 샘플은 선택 항목(genre·period·teamType·contribution·영상·와이어프레임)을 일부러 비워 두고,
+# 긴 제목이 레이아웃을 깨지 않는지 확인하는 용도도 겸합니다.
+title: 인벤토리·상점 통합 UI 리디자인 — 아이템 비교와 구매 확인 흐름 개선 (Inventory&ShopComparisonFlowRedesign)
+summary: 아이템 능력치 비교와 구매 전 확인 단계를 한 흐름으로 정리한 인벤토리·상점 UI 샘플 프로젝트입니다.
+sample: true
+projectType: 개인 콘셉트 (샘플)
+platform: PC / Console
+roles:
+  - UI 디자인
+coverImage: ./images/cover.svg
+coverAlt: 아이템 격자와 선택한 아이템의 능력치 비교 패널이 있는 인벤토리 샘플 화면
+coverPosition: 30% 50%
+tags: [Inventory, Shop]
+featured: true
+order: 3
+sections:
+  - title: 디자인 목표
+    body: |
+      [샘플 문구] 장착 여부를 판단할 때 필요한 비교 정보를 아이템을 선택한 즉시 보여 주고, 재화를 쓰는 행동은 결과를 미리 확인한 뒤 진행하도록 하는 것을 목표로 했습니다.
+  - title: 최종 UI 화면
+    images:
+      - src: ./images/inventory-final.svg
+        alt: 왼쪽 아이템 격자와 오른쪽 능력치 비교 패널로 구성된 인벤토리 화면
+        title: 인벤토리 · 능력치 비교
+      - src: ./images/detail-shop-confirm.svg
+        alt: 상점 상품 목록 위에 표시된 구매 확인 대화상자. 보유 재화 변화가 함께 표시된다
+        title: 구매 확인 대화상자
+        caption: 구매 후 남는 재화를 미리 보여 줍니다.
+        layout: detail

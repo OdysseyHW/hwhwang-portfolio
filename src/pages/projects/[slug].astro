@@ -1,0 +1,339 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ZoomFigure from '../../components/ZoomFigure.astro';
+import VideoBlock from '../../components/VideoBlock.astro';
+import RichText from '../../components/RichText.astro';
+import Lightbox from '../../components/Lightbox.astro';
+import { getSortedProjects, groupFigures, type Project } from '../../lib/projects';
+import { projectUrl, withBase } from '../../lib/url';
+
+export async function getStaticPaths() {
+  const projects = await getSortedProjects();
+  return projects.map((project, i) => ({
+    params: { slug: project.id },
+    props: { project, prev: projects[i - 1], next: projects[i + 1] },
+  }));
+}
+
+interface Props {
+  project: Project;
+  prev?: Project;
+  next?: Project;
+}
+
+const { project, prev, next } = Astro.props;
+const d = project.data;
+
+// 값이 있는 개요 항목만 표시
+const overview = [
+  { label: '프로젝트 유형', value: d.projectType },
+  { label: '장르', value: d.genre },
+  { label: '플랫폼', value: d.platform },
+  { label: '기간', value: d.period },
+  { label: '작업 형태', value: d.teamType },
+].filter((o): o is { label: string; value: string } => Boolean(o.value));
+
+// 본문·이미지·영상이 모두 없는 섹션은 출력하지 않음
+const sections = d.sections
+  .filter((s) => s.body?.trim() || s.images.length > 0 || s.video)
+  .map((s, i) => ({ ...s, id: `section-${i + 1}`, groups: groupFigures(s.images) }));
+---
+
+<BaseLayout title={d.title} description={d.summary} type="article">
+  <article class="project">
+    <header class="project__header container">
+      <nav class="breadcrumb" aria-label="위치">
+        <a href={`${withBase()}#works`}>
+          <span aria-hidden="true">←</span> 프로젝트 목록
+        </a>
+      </nav>
+      {
+        d.sample && (
+          <p class="sample-note">
+            <span class="sample-badge">샘플 프로젝트</span>
+            <span class="muted">레이아웃 확인용 임시 콘텐츠입니다. 실제 작업물이 아닙니다.</span>
+          </p>
+        )
+      }
+      <h1 class="project__title">{d.title}</h1>
+      <p class="project__summary">{d.summary}</p>
+      {
+        d.tags.length > 0 && (
+          <ul class="tag-list" aria-label="태그">
+            {d.tags.map((t) => (
+              <li class="tag">{t}</li>
+            ))}
+          </ul>
+        )
+      }
+    </header>
+
+    <div class="container project__cover">
+      <ZoomFigure src={d.coverImage} alt={d.coverAlt} title="대표 이미지" eager />
+    </div>
+
+    <div class="container project__intro">
+      <section class="block" aria-labelledby="overview-title">
+        <h2 id="overview-title" class="block__title">프로젝트 개요</h2>
+        <dl class="overview">
+          {
+            overview.map((o) => (
+              <div class="overview__item">
+                <dt>{o.label}</dt>
+                <dd>{o.value}</dd>
+              </div>
+            ))
+          }
+        </dl>
+      </section>
+
+      <section class="block" aria-labelledby="role-title">
+        <h2 id="role-title" class="block__title">담당 역할</h2>
+        <ul class="tag-list role-list">
+          {d.roles.map((r) => <li class="tag">{r}</li>)}
+        </ul>
+        {d.contribution && <RichText text={d.contribution} class="role-text" />}
+      </section>
+    </div>
+
+    {
+      sections.map((s) => (
+        <section class="project-section container" aria-labelledby={s.id}>
+          <h2 id={s.id} class="project-section__title">
+            {s.title}
+          </h2>
+          <RichText text={s.body} />
+          {s.groups.map((g) =>
+            g.layout === 'full' ? (
+              <div class="figures figures--full">
+                {g.items.map((img) => (
+                  <ZoomFigure src={img.src} alt={img.alt} title={img.title} caption={img.caption} />
+                ))}
+              </div>
+            ) : (
+              <div class="figures figures--detail">
+                {g.items.map((img) => (
+                  <ZoomFigure
+                    src={img.src}
+                    alt={img.alt}
+                    title={img.title}
+                    caption={img.caption}
+                    sizes="(min-width: 80em) 630px, (min-width: 37.5em) 50vw, 100vw"
+                  />
+                ))}
+              </div>
+            ),
+          )}
+          {s.video && (
+            <div class="figures">
+              <VideoBlock {...s.video} />
+            </div>
+          )}
+        </section>
+      ))
+    }
+
+    <nav class="pager container" aria-label="다른 프로젝트">
+      <div class="pager__inner">
+        {
+          prev ? (
+            <a class="pager__link pager__link--prev" href={projectUrl(prev.id)}>
+              <span class="pager__label">
+                <span aria-hidden="true">←</span> 이전 프로젝트
+              </span>
+              <span class="pager__title">{prev.data.title}</span>
+            </a>
+          ) : (
+            <span />
+          )
+        }
+        <a class="pager__all button" href={`${withBase()}#works`}>전체 목록</a>
+        {
+          next ? (
+            <a class="pager__link pager__link--next" href={projectUrl(next.id)}>
+              <span class="pager__label">
+                다음 프로젝트 <span aria-hidden="true">→</span>
+              </span>
+              <span class="pager__title">{next.data.title}</span>
+            </a>
+          ) : (
+            <span />
+          )
+        }
+      </div>
+    </nav>
+  </article>
+
+  <Lightbox />
+</BaseLayout>
+
+<style>
+  .project__header {
+    padding-top: var(--space-5);
+    padding-bottom: var(--space-6);
+  }
+
+  .breadcrumb a {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--tap-min);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .breadcrumb a:hover {
+    color: var(--color-text);
+  }
+
+  .sample-note {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    margin: var(--space-3) 0 var(--space-4);
+    font-size: var(--text-sm);
+  }
+
+  .project__title {
+    max-width: 30ch;
+    font-size: var(--text-2xl);
+  }
+
+  .project__summary {
+    max-width: var(--reading-max);
+    margin: var(--space-4) 0 var(--space-5);
+    color: var(--color-text-muted);
+    font-size: var(--text-md);
+  }
+
+  .project__intro {
+    display: grid;
+    gap: var(--space-7);
+    padding-block: var(--space-section) 0;
+  }
+
+  @media (min-width: 56.25em) {
+    .project__intro {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+  }
+
+  .block__title,
+  .project-section__title {
+    margin-bottom: var(--space-5);
+    font-size: var(--text-xl);
+  }
+
+  .overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+    gap: var(--space-4) var(--space-5);
+    margin: 0;
+  }
+
+  .overview__item {
+    padding-top: var(--space-3);
+    border-top: var(--border-width) solid var(--color-border);
+  }
+
+  .overview dt {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .overview dd {
+    margin: var(--space-1) 0 0;
+    font-weight: 600;
+  }
+
+  .role-list {
+    margin-bottom: var(--space-5);
+  }
+
+  .project-section {
+    padding-top: var(--space-section);
+  }
+
+  .figures {
+    display: grid;
+    gap: var(--space-6);
+    margin-top: var(--space-6);
+  }
+
+  @media (min-width: 37.5em) {
+    .figures--detail {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: start;
+      gap: var(--space-6) var(--space-5);
+    }
+  }
+
+  .pager {
+    padding-block: var(--space-section);
+  }
+
+  .pager__inner {
+    display: grid;
+    gap: var(--space-4);
+    padding-top: var(--space-6);
+    border-top: var(--border-width) solid var(--color-border);
+  }
+
+  @media (min-width: 56.25em) {
+    .pager__inner {
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      align-items: center;
+    }
+  }
+
+  .pager__all {
+    justify-self: center;
+  }
+
+  .pager__link {
+    display: grid;
+    gap: var(--space-1);
+    min-height: var(--tap-min);
+    padding: var(--space-4);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    transition: border-color var(--duration) var(--ease);
+  }
+
+  .pager__link:hover {
+    border-color: var(--color-border-strong);
+  }
+
+  .pager__link--next {
+    text-align: right;
+  }
+
+  .pager__label {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .pager__title {
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 56.24em) {
+    .pager__inner > span:empty {
+      display: none;
+    }
+
+    .pager__all {
+      order: 3;
+      justify-self: stretch;
+    }
+
+    .pager__link--next {
+      text-align: left;
+    }
+  }
+</style>

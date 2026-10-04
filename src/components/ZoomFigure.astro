@@ -1,0 +1,144 @@
+---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import { responsive } from '../lib/url';
+
+interface Props {
+  src: ImageMetadata;
+  alt: string;
+  title?: string;
+  caption?: string;
+  /** 표시 폭 힌트 (srcset 선택용) */
+  sizes?: string;
+  eager?: boolean;
+  class?: string;
+}
+
+const { src, alt, title, caption, sizes = '(min-width: 80em) 1280px, 100vw', eager = false, class: className } = Astro.props;
+const label = title ? `${title} 확대 보기` : `이미지 확대 보기: ${alt}`;
+---
+
+<figure class:list={['zoom-figure', className]}>
+  <button
+    type="button"
+    class="zoom-figure__button"
+    data-zoom
+    data-zoom-src={src.src}
+    data-zoom-width={src.width}
+    data-zoom-height={src.height}
+    data-zoom-alt={alt}
+    data-zoom-title={title ?? ''}
+    data-zoom-caption={caption ?? ''}
+    aria-haspopup="dialog"
+  >
+    <Image src={src} alt={alt} {...responsive(src, [640, 960, 1280, 1920, 2560], sizes)} loading={eager ? 'eager' : 'lazy'} fetchpriority={eager ? 'high' : 'auto'} />
+    <span class="zoom-figure__hint">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <path d="M6.5 1a5.5 5.5 0 0 1 4.38 8.83l3.4 3.4-1.05 1.06-3.4-3.4A5.5 5.5 0 1 1 6.5 1Zm0 1.5a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM7.25 4v1.75H9v1.5H7.25V9h-1.5V7.25H4v-1.5h1.75V4h1.5Z" fill="currentColor"></path>
+      </svg>
+      <span class="visually-hidden">{label}</span>
+      <span aria-hidden="true">확대</span>
+    </span>
+  </button>
+  {
+    (title || caption) && (
+      <figcaption>
+        {title && <strong class="zoom-figure__title">{title}</strong>}
+        {caption && <span class="zoom-figure__caption">{caption}</span>}
+      </figcaption>
+    )
+  }
+</figure>
+
+<style>
+  .zoom-figure {
+    margin: 0;
+    min-width: 0;
+  }
+
+  .zoom-figure__button {
+    position: relative;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-raised);
+    overflow: hidden;
+    cursor: zoom-in;
+  }
+
+  /* 상세 이미지는 원본 비율 유지, 자르지 않음 */
+  .zoom-figure__button img {
+    width: 100%;
+    height: auto;
+  }
+
+  .zoom-figure__hint {
+    position: absolute;
+    right: var(--space-3);
+    bottom: var(--space-3);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-height: 32px;
+    padding: 0 var(--space-3);
+    border-radius: var(--radius-sm);
+    background: rgb(15 16 18 / 0.85);
+    color: var(--color-text);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .zoom-figure__button:hover .zoom-figure__hint,
+  .zoom-figure__button:focus-visible .zoom-figure__hint {
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+  }
+
+  /* 작업물을 가리지 않도록: 마우스 환경은 올렸을 때·초점일 때만, 터치 환경은 작은 아이콘만 표시 */
+  @media (hover: hover) {
+    .zoom-figure__hint {
+      opacity: 0;
+      transition: opacity var(--duration) var(--ease);
+    }
+
+    .zoom-figure__button:hover .zoom-figure__hint,
+    .zoom-figure__button:focus-visible .zoom-figure__hint {
+      opacity: 1;
+    }
+  }
+
+  @media (hover: none) {
+    .zoom-figure__hint {
+      right: var(--space-2);
+      bottom: var(--space-2);
+      min-height: 28px;
+      padding: 0 6px;
+    }
+
+    .zoom-figure__hint > span[aria-hidden] {
+      display: none;
+    }
+  }
+
+  figcaption {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    overflow-wrap: anywhere;
+    gap: var(--space-1);
+    margin-top: var(--space-3);
+    max-width: var(--reading-max);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+  }
+
+  .zoom-figure__title {
+    font-size: var(--text-base);
+  }
+
+  .zoom-figure__caption {
+    color: var(--color-text-muted);
+  }
+</style>

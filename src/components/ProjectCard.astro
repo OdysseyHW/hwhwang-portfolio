@@ -1,0 +1,146 @@
+---
+import { Image } from 'astro:assets';
+import type { Project } from '../lib/projects';
+import { projectUrl, responsive } from '../lib/url';
+
+interface Props {
+  project: Project;
+  /** 첫 화면에 보이는 카드는 지연 로딩하지 않는다 */
+  eager?: boolean;
+  headingLevel?: 'h2' | 'h3';
+}
+
+const { project, eager = false, headingLevel: Heading = 'h3' } = Astro.props;
+const { data } = project;
+---
+
+<article class="card">
+  <div class="card__media">
+    <Image
+      src={data.coverImage}
+      alt={data.coverAlt}
+      {...responsive(data.coverImage, [480, 800, 1200], '(min-width: 75em) 400px, (min-width: 37.5em) 50vw, 100vw')}
+      loading={eager ? 'eager' : 'lazy'}
+      fetchpriority={eager ? 'high' : 'auto'}
+      style={`object-position: ${data.coverPosition}`}
+    />
+  </div>
+  <div class="card__body">
+    {data.sample && <span class="sample-badge">샘플 프로젝트</span>}
+    <Heading class="card__title">
+      <a class="card__link" href={projectUrl(project.id)}>{data.title}</a>
+    </Heading>
+    <dl class="card__meta">
+      <div>
+        <dt>유형</dt>
+        <dd>{data.projectType}</dd>
+      </div>
+      <div>
+        <dt>플랫폼</dt>
+        <dd>{data.platform}</dd>
+      </div>
+      <div>
+        <dt>담당</dt>
+        <dd>{data.roles.join(', ')}</dd>
+      </div>
+    </dl>
+  </div>
+</article>
+
+<style>
+  .card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--color-surface);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    transition: border-color var(--duration) var(--ease);
+  }
+
+  .card:hover {
+    border-color: var(--color-border-strong);
+  }
+
+  /* 카드 전체를 하나의 링크 영역으로 (제목 링크를 카드 크기로 확장) */
+  .card:focus-within {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 3px;
+  }
+
+  .card__link {
+    text-decoration: none;
+  }
+
+  .card__link:focus-visible {
+    outline: none;
+  }
+
+  .card__link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+
+  .card:hover .card__title {
+    color: var(--color-accent);
+  }
+
+  .card__media {
+    aspect-ratio: var(--card-ratio);
+    background: var(--color-surface-raised);
+    overflow: hidden;
+  }
+
+  /* 썸네일에서만 자르기 허용 — 중심은 coverPosition으로 지정 */
+  .card__media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 400ms var(--ease);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .card:hover .card__media img {
+      transform: scale(1.02);
+    }
+  }
+
+  .card__body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-5);
+  }
+
+  .card__title {
+    font-size: var(--text-lg);
+    transition: color var(--duration) var(--ease);
+  }
+
+  .card__meta {
+    display: grid;
+    gap: var(--space-1);
+    margin: 0;
+    font-size: var(--text-sm);
+    line-height: 1.6;
+  }
+
+  .card__meta div {
+    display: grid;
+    grid-template-columns: 3.5em minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+
+  .card__meta dt {
+    color: var(--color-text-muted);
+  }
+
+  .card__meta dd {
+    margin: 0;
+  }
+</style>

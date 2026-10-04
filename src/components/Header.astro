@@ -1,0 +1,225 @@
+---
+import { site } from '../data/site';
+import { withBase } from '../lib/url';
+
+const home = withBase();
+const links = [
+  { label: 'Works', href: `${home}#works` },
+  { label: 'About', href: `${home}#about` },
+  { label: 'Contact', href: `${home}#contact` },
+];
+---
+
+<header class="site-header">
+  <div class="container site-header__inner">
+    <a class="logo" href={home}>{site.name}</a>
+
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" data-menu-toggle>
+      <span class="menu-toggle__icon" aria-hidden="true"></span>
+      <span class="menu-toggle__label">메뉴</span>
+    </button>
+
+    <nav id="site-nav" class="site-nav" aria-label="주요 메뉴" data-menu>
+      <ul>
+        {links.map((l) => <li><a href={l.href}>{l.label}</a></li>)}
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgb(15 16 18 / 0.94);
+    border-bottom: var(--border-width) solid var(--color-border);
+  }
+
+  .site-header__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    min-height: var(--header-h);
+  }
+
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
+    min-width: 0;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+  }
+
+  .site-nav ul {
+    display: flex;
+    gap: var(--space-1);
+    margin: 0;
+    margin-right: calc(var(--space-3) * -1);
+    padding: 0;
+    list-style: none;
+  }
+
+  .site-nav a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--tap-min);
+    min-width: var(--tap-min);
+    padding-inline: var(--space-3);
+    color: var(--color-text-muted);
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    transition: color var(--duration) var(--ease);
+  }
+
+  .site-nav a:hover {
+    color: var(--color-text);
+  }
+
+  .menu-toggle {
+    display: none;
+    flex-shrink: 0;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--tap-min);
+    min-width: var(--tap-min);
+    margin-right: calc(var(--space-3) * -1);
+    padding-inline: var(--space-3);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  .menu-toggle__icon,
+  .menu-toggle__icon::before,
+  .menu-toggle__icon::after {
+    display: block;
+    width: 18px;
+    height: 2px;
+    background: currentColor;
+    border-radius: 1px;
+    transition: transform var(--duration) var(--ease), background-color var(--duration) var(--ease);
+  }
+
+  .menu-toggle__icon {
+    position: relative;
+  }
+
+  .menu-toggle__icon::before,
+  .menu-toggle__icon::after {
+    content: '';
+    position: absolute;
+    left: 0;
+  }
+
+  .menu-toggle__icon::before {
+    top: -6px;
+  }
+
+  .menu-toggle__icon::after {
+    top: 6px;
+  }
+
+  .menu-toggle[aria-expanded='true'] .menu-toggle__icon {
+    background: transparent;
+  }
+
+  .menu-toggle[aria-expanded='true'] .menu-toggle__icon::before {
+    transform: translateY(6px) rotate(45deg);
+  }
+
+  .menu-toggle[aria-expanded='true'] .menu-toggle__icon::after {
+    transform: translateY(-6px) rotate(-45deg);
+  }
+
+  /* 좁은 화면: 메뉴 버튼으로 전환 (JS가 꺼져 있으면 메뉴를 그대로 펼쳐 둔다) */
+  @media (max-width: 39.99em) {
+    :global(.js) .menu-toggle {
+      display: inline-flex;
+    }
+
+    :global(.js) .site-nav {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      max-height: calc(100dvh - var(--header-h));
+      overflow-y: auto;
+      background: var(--color-surface);
+      border-top: var(--border-width) solid var(--color-border);
+      border-bottom: var(--border-width) solid var(--color-border);
+    }
+
+    :global(.js) .site-nav[data-open] {
+      display: block;
+    }
+
+    :global(.js) .site-nav ul {
+      flex-direction: column;
+      margin: 0;
+      padding: var(--space-2) var(--gutter) var(--space-4);
+    }
+
+    :global(.js) .site-nav a {
+      display: flex;
+      justify-content: flex-start;
+      width: 100%;
+      font-size: var(--text-md);
+      color: var(--color-text);
+    }
+  }
+</style>
+
+<script>
+  const toggle = document.querySelector<HTMLButtonElement>('[data-menu-toggle]');
+  const menu = document.querySelector<HTMLElement>('[data-menu]');
+  const mq = window.matchMedia('(max-width: 39.99em)');
+
+  if (toggle && menu) {
+    const label = toggle.querySelector('.menu-toggle__label');
+    const isOpen = () => menu.hasAttribute('data-open');
+
+    const setOpen = (open: boolean, returnFocus = false) => {
+      toggle.setAttribute('aria-expanded', String(open));
+      if (label) label.textContent = open ? '메뉴 닫기' : '메뉴';
+      menu.toggleAttribute('data-open', open);
+      if (open) menu.querySelector('a')?.focus();
+      else if (returnFocus) toggle.focus();
+    };
+
+    toggle.addEventListener('click', () => setOpen(!isOpen()));
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isOpen()) setOpen(false, true);
+    });
+
+    // 메뉴 항목 선택 시 닫기
+    menu.addEventListener('click', (e) => {
+      if ((e.target as Element).closest('a')) setOpen(false);
+    });
+
+    // 메뉴 바깥을 누르면 닫기
+    document.addEventListener('click', (e) => {
+      const t = e.target as Node;
+      if (isOpen() && !menu.contains(t) && !toggle.contains(t)) setOpen(false);
+    });
+
+    // 키보드 초점이 메뉴 밖으로 나가면 닫기
+    menu.addEventListener('focusout', (e) => {
+      const next = e.relatedTarget as Node | null;
+      if (isOpen() && next && !menu.contains(next) && next !== toggle) setOpen(false);
+    });
+
+    // 화면이 넓어지거나 좁아지면 초기 상태로
+    mq.addEventListener('change', () => setOpen(false));
+  }
+</script>
