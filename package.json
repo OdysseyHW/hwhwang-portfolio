@@ -9,7 +9,8 @@
     "preview": "astro preview",
     "check": "astro check",
     "verify": "node scripts/verify.mjs",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node scripts/screenshots.mjs",
+    "record": "node scripts/record-motion.mjs"
   },
   "dependencies": {
     "astro": "^7.3.5"
