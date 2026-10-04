@@ -55,6 +55,7 @@
   --space-7: 3rem;
   --space-section: clamp(3.5rem, 2.5rem + 4vw, 6.5rem);
   --gutter: clamp(1rem, 0.6rem + 1.8vw, 2rem); /* 좌우 여백: 320px에서 약 16px */
+  --gutter-wide: clamp(1rem, 4vw, 10rem); /* 헤더·히어로·메뉴의 화면 폭 레이아웃 여백: 1440px 58px · 1920px 77px · 2560px 102px */
 
   /* 크기·테두리 */
   --content-max: 80rem; /* 약 1280px */

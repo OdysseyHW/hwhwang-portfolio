@@ -104,6 +104,17 @@ button {
   padding-inline: var(--gutter);
 }
 
+/*
+ * 화면 폭 레이아웃 — 헤더·메인 히어로·전체 화면 메뉴 전용.
+ * 넓은 화면에서도 로고·제목·SCROLL DOWN은 같은 왼쪽 선, 메뉴 버튼·영상 제어·닫기 버튼은 같은 오른쪽 선에 둔다.
+ * 프로젝트 목록·상세 본문은 읽기 폭을 위해 기존 .container(최대 약 1280px)를 그대로 쓴다.
+ */
+.container-wide {
+  width: 100%;
+  padding-left: max(var(--gutter-wide), env(safe-area-inset-left));
+  padding-right: max(var(--gutter-wide), env(safe-area-inset-right));
+}
+
 .prose {
   max-width: var(--reading-max);
 }

@@ -1066,6 +1066,50 @@ for (const name of selected) {
     }
   }
 
+  // ---------- REQ-006 보완 R2: 화면 폭 레이아웃 정렬 ----------
+  for (const [w, h] of [[320, 568], [390, 844], [1440, 900], [1920, 1080], [2560, 1440], [3840, 2160]]) {
+    const { ctx, page } = await newPage({ viewport: { width: w, height: h } });
+    await page.goto(u(), gotoOpts(name));
+    await page.evaluate(() => Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]));
+    const box = (q) => page.$eval(q, (el) => { const r = el.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; });
+    const m = await page.evaluate(() => {
+      const vw = window.innerWidth;
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+      // 레이아웃 폭: scrollbar-gutter로 예약된 공간을 뺀 실제 내용 폭(히어로 너비) 기준
+      return { cw: document.querySelector('[data-hero]').getBoundingClientRect().right, gutter: Math.min(Math.max(rem, vw * 0.04), 10 * rem), grid: document.querySelector('.project-grid').getBoundingClientRect().width };
+    });
+    const lefts = {
+      logo: (await box('.site-header .logo')).l,
+      title: (await box('#hero-title')).l,
+      desc: (await box('.hero__desc')).l,
+      cta: (await box('.hero__cta')).l,
+      scroll: (await box('.hero__scroll')).l,
+    };
+    const menuBtn = await box('[data-menu-toggle]');
+    const rights = { menuLines: (await box('.site-header .menu-btn__lines span')).r, videoToggle: (await box('[data-hero-toggle]')).r };
+    // 메뉴를 열어도 로고·버튼 위치가 그대로이고, 큰 링크도 같은 왼쪽 선
+    await page.$eval('[data-menu-toggle]', (b) => b.click()); // 스크롤 없는 실제 클릭
+    await page.waitForTimeout(700);
+    const menuLogo = (await box('.site-menu__bar .logo')).l;
+    const closeBtn = await box('[data-menu-close]');
+    const menuLink = (await box('[data-menu] .site-menu__link')).l;
+    const near = (a, b, tol = 0.6) => Math.abs(a - b) <= tol;
+    const leftVals = [...Object.values(lefts), menuLogo, menuLink];
+    const leftOk = leftVals.every((v) => near(v, m.gutter));
+    // 오른쪽 선: 레이아웃 영역(히어로)의 오른쪽 끝 - 여백 (scrollbar-gutter로 예약된 폭은 clientWidth에 반영되지 않으므로 요소 기준)
+    const rightLine = (await box('[data-hero]')).r - m.gutter;
+    const rightOk = near(rights.menuLines, rightLine) && near(rights.videoToggle, rightLine);
+    const noJump = near(closeBtn.l, menuBtn.l) && near(closeBtn.t, menuBtn.t) && near(menuLogo, lefts.logo);
+    const readOk = m.grid <= 1280 + 0.5;
+    check(
+      name,
+      `REQ-006 R2 ${w}×${h}: 왼쪽 선 ${m.gutter.toFixed(1)}px 통일, 오른쪽 선 일치, 메뉴 열어도 위치 유지, 카드 폭 ${Math.round(m.grid)}px`,
+      leftOk && rightOk && noJump && readOk,
+      JSON.stringify({ lefts, menuLogo, menuLink, rights, rightLine, menuBtn, closeBtn, grid: m.grid }),
+    );
+    await ctx.close();
+  }
+
   // ---------- 200% 확대 (1280px 창 = CSS 640px) ----------
   {
     const { ctx, page } = await newPage({ viewport: { width: 640, height: 400 }, deviceScaleFactor: 2 });

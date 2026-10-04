@@ -27,7 +27,7 @@ const showContact = !site.contactIsSample && (Boolean(site.email) || site.social
 ---
 
 <header class:list={['site-header', overlay && 'site-header--overlay']} data-site-header data-overlay={overlay ? '' : undefined}>
-  <div class="container site-header__inner">
+  <div class="container-wide site-header__inner">
     <a class="logo" href={home}>{site.name}</a>
     <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-menu" aria-label="메뉴 열기" data-menu-toggle>
       <span class="menu-btn__lines" aria-hidden="true"><span></span><span></span><span></span></span>
@@ -38,14 +38,14 @@ const showContact = !site.contactIsSample && (Boolean(site.email) || site.social
 <dialog id="site-menu" class="site-menu" aria-label="사이트 메뉴" data-menu>
   <div class="site-menu__scrim" aria-hidden="true"></div>
   <div class="site-menu__panel">
-    <div class="container site-menu__bar">
+    <div class="container-wide site-menu__bar">
       <a class="logo" href={home} data-menu-link>{site.name}</a>
       <button class="menu-btn is-close" type="button" aria-label="메뉴 닫기" data-menu-close>
         <span class="menu-btn__lines" aria-hidden="true"><span></span><span></span><span></span></span>
       </button>
     </div>
 
-    <div class="container site-menu__body">
+    <div class="container-wide site-menu__body">
       <nav class="site-menu__nav" aria-label="주요 메뉴">
         <ol class="site-menu__list">
           {
@@ -133,7 +133,7 @@ const showContact = !site.contactIsSample && (Boolean(site.email) || site.social
     justify-content: center;
     width: var(--tap-min);
     height: var(--tap-min);
-    margin-right: -10px; /* 선의 오른쪽 끝을 콘텐츠 정렬선에 맞춤 */
+    margin-right: -9px; /* 26px 선이 44px 버튼 가운데 → 선의 오른쪽 끝을 오른쪽 여백 선에 맞춤 */
     padding: 0;
     border: 0;
     border-radius: var(--radius-sm);
@@ -262,7 +262,7 @@ const showContact = !site.contactIsSample && (Boolean(site.email) || site.social
     height: 100%;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); /* 좌우 세이프 영역은 .container-wide */
   }
 
   .site-menu__bar {

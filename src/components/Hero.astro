@@ -54,7 +54,7 @@ const style = `--hero-focal: ${hero.focalPoint}; --hero-focal-mobile: ${hero.foc
 
   {
     hasVideo && (
-      <div class="container hero__top">
+      <div class="container-wide hero__top">
         <div class="hero__controls">
           {hero.sampleLabel && <span class="hero__sample">{hero.sampleLabel}</span>}
           <button type="button" class="hero__toggle" data-hero-toggle aria-label="배경 영상 재생">
@@ -71,7 +71,7 @@ const style = `--hero-focal: ${hero.focalPoint}; --hero-focal-mobile: ${hero.foc
     )
   }
 
-  <div class="container hero__content">
+  <div class="container-wide hero__content">
     <h1 id="hero-title" class="hero__title" lang={hero.titleLang}>
       {
         titleLines.map((line, i) => (
@@ -91,7 +91,7 @@ const style = `--hero-focal: ${hero.focalPoint}; --hero-focal-mobile: ${hero.foc
     </a>
   </div>
 
-  <div class="container hero__bottom">
+  <div class="container-wide hero__bottom">
     <a class="hero__scroll" href={ctaHref}>
       <span class="hero__scroll-track" aria-hidden="true"><span class="hero__scroll-dot"></span></span>
       <span class="hero__scroll-text"><span>Scroll</span> <span>Down</span></span>
