@@ -81,7 +81,7 @@ for (const s of shots) {
     await page.waitForTimeout(200);
   }
   if (s.menu) {
-    await page.$eval('[data-menu-toggle]', (b) => b.click()); // 스크롤 없는 실제 클릭
+    await page.$eval('[data-menu-toggle]', (b) => /** @type {HTMLButtonElement} */ (b).click()); // 스크롤 없는 실제 클릭
     await page.waitForTimeout(900); // 전체 화면 메뉴 열림 전환 완료 후 캡처
   }
   await page.screenshot({ path: join(OUT, `${s.name}.jpg`), type: 'jpeg', quality: 72, fullPage: Boolean(s.fullPage) });
