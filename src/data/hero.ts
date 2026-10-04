@@ -1,6 +1,7 @@
 import type { ImageMetadata } from 'astro';
-// 임시 포스터: 기존 RPG 샘플 프로젝트의 이미지를 재사용 (원본 파일은 그대로, 히어로에서만 흑백 필터)
-import samplePoster from '../content/projects/rpg-hud-character-ui/images/hud-final.svg';
+// 포스터: 배경 영상(4Ground9) 11.0초(프레임 330, 게임 내 장면)에서 추출. 첫 2초 타이틀 화면은 히어로 제목과 글자가 겹쳐
+// 영상이 재생되지 않는 환경(모션 줄이기·자동 재생 차단·로드 실패)에서 계속 겹쳐 보이므로 글자가 적은 장면을 골랐다. 제작 방법: docs/HERO-VIDEO.md
+import heroPoster from '../assets/hero/4ground9-poster.jpg';
 
 /**
  * 메인 히어로 설정. 최종 영상·문구가 정해지면 이 파일만 바꾸면 된다.
@@ -46,14 +47,14 @@ export const hero: HeroInfo = {
   // 예) 한글: titleLines: ['플레이를', '설계하는', '디자이너'], titleLang: 'ko'
   // 예) 혼합: titleLines: ['GAME UI', { text: '디자이너', lang: 'ko' }], titleLang: 'en'
   description: '플레이의 흐름을 만드는 게임 UI 디자이너.',
-  // 임시: 기존 RPG HUD 샘플 영상 (최종 흑백 UI 모션 쇼릴로 교체 예정)
-  videoDesktop: 'videos/rpg-hud-interaction.webm',
-  videoMobile: 'videos/rpg-hud-interaction.webm',
-  posterDesktop: samplePoster,
+  // 사용자 제공 4Ground9 영상 2편(CharacterIntroduce → PV_Openning)을 이어 붙인 무음 웹용 파일 (REQ-005)
+  videoDesktop: 'videos/4ground9-hero-1080.mp4',
+  videoMobile: 'videos/4ground9-hero-720.mp4',
+  posterDesktop: heroPoster,
   focalPoint: '50% 50%',
-  focalPointMobile: '30% 50%',
+  focalPointMobile: '50% 50%',
   ctaLabel: '작업물 보기',
   ctaTarget: '#works',
   monochrome: true,
-  sampleLabel: 'SAMPLE VIDEO',
+  sampleLabel: undefined, // 사용자 제공 영상이므로 SAMPLE VIDEO 표시 없음
 };

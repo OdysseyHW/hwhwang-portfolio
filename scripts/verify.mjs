@@ -169,9 +169,16 @@ for (const name of selected) {
   };
 
   // 전체 화면 메뉴 열기 (열림 전환이 끝날 때까지 대기)
+  // 페이지 안에서 버튼 click()을 호출한다 — 이미 열려 있으면 open()이 아무것도 하지 않으므로 재시도해도 안전하고,
+  // 바쁜 환경(WebKit 테스트 빌드의 영상 디코딩 등)에서 늦게 처리된 클릭이 닫기 버튼을 누르는 일이 없다.
+  // 실제 포인터 클릭은 메뉴 버튼을 직접 누르는 다른 검사들이 확인한다.
   const openMenu = async (page) => {
-    await page.click('[data-menu-toggle]');
-    await page.waitForFunction(() => document.querySelector('[data-menu]')?.open);
+    await page.waitForLoadState('domcontentloaded');
+    for (let i = 0; i < 3; i++) {
+      await page.$eval('[data-menu-toggle]', (b) => b.click());
+      const opened = await page.waitForFunction(() => document.querySelector('[data-menu]')?.open, null, { timeout: 3000 }).then(() => true, () => false);
+      if (opened) break;
+    }
     await page.waitForTimeout(650);
   };
 
@@ -291,7 +298,7 @@ for (const name of selected) {
     check(name, `${vp.width}px: Esc로 닫힘 + 버튼으로 초점 복원 + 스크롤 잠금 해제`, !afterEsc.open && afterEsc.focus && afterEsc.overflow === '' && (await t.getAttribute('aria-expanded')) === 'false', JSON.stringify(afterEsc));
     await openMenu(page);
     await page.click('[data-menu] a[href$="#about"]');
-    await page.waitForLoadState(name === 'webkit' ? 'domcontentloaded' : 'load');
+    await page.waitForURL(/#about$/, gotoOpts(name));
     check(name, `${vp.width}px: 상세에서 메뉴 → 메인 About 이동`, page.url().endsWith(`${BASE}#about`), page.url());
     check(name, `${vp.width}px: 이동 후 메뉴 닫힘`, (await t.getAttribute('aria-expanded')) === 'false' && !(await page.$eval('[data-menu]', (d) => d.open)));
     // 닫기 버튼
@@ -398,13 +405,14 @@ for (const name of selected) {
           posterOk: Boolean(poster?.complete && poster.naturalWidth > 0),
         };
       });
-    const webkitNoMedia = name === 'webkit'; // Windows용 WebKit 빌드는 미디어 재생 불가 → 포스터 대체를 확인
+    // Windows용 WebKit 테스트 빌드는 WebM(VP8)은 재생하지 못하지만 MP4(H.264)는 재생한다 (REQ-005 이후 히어로는 MP4).
+    const webkitNoMedia = false;
 
     // 1) 자동 재생·반복·무음·파일 1개만 요청
     for (const vp of [{ width: 1440, height: 900, label: '데스크톱' }, { width: 390, height: 844, label: '모바일' }]) {
       const { ctx, page } = await newPage({ viewport: { width: vp.width, height: vp.height } });
       const videoReqs = new Set();
-      page.on('request', (r) => r.url().endsWith('.webm') && videoReqs.add(r.url()));
+      page.on('request', (r) => /\/videos\/.+\.(mp4|webm)$/.test(r.url()) && videoReqs.add(r.url()));
       await page.goto(u(), gotoOpts(name));
       await page.waitForTimeout(1500);
       const a = await heroState(page);
@@ -421,10 +429,36 @@ for (const name of selected) {
       }
       const tb = await page.locator('[data-hero-toggle]').boundingBox();
       check(name, `히어로 ${vp.label}: 재생/정지 버튼 44px 이상`, tb.width >= 44 && tb.height >= 44, `${tb.width}×${tb.height}`);
-      check(name, `히어로 ${vp.label}: SAMPLE VIDEO 표시`, await page.isVisible('.hero__sample'));
+      check(name, `히어로 ${vp.label}: 사용자 제공 영상 — SAMPLE VIDEO 표시 없음`, !(await page.isVisible('.hero__sample')));
       check(name, `히어로 ${vp.label}: 제목 글꼴 Zalando Sans Expanded`, await page.evaluate(() => document.fonts.check('800 40px "Zalando Sans Expanded"') && getComputedStyle(document.querySelector('#hero-title')).fontFamily.replace(/["']/g, '').startsWith('Zalando Sans Expanded')));
       check(name, `히어로 ${vp.label}: 본문 글꼴 Google Sans 로드`, await page.evaluate(async () => { await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]); return document.fonts.check('400 16px "Google Sans"') && [...document.fonts].some((f) => f.family.includes('Google Sans') && f.status === 'loaded'); }));
       check(name, `히어로 ${vp.label}: 히어로에만 흑백 필터`, await page.evaluate(() => getComputedStyle(document.querySelector('.hero__poster')).filter.includes('grayscale')));
+      await ctx.close();
+    }
+
+    // REQ-005) 사용자 제공 4Ground9 배경 영상: 화면 크기별 파일, 길이, 끝→처음 반복
+    for (const [w, h, want] of [[1440, 900, '4ground9-hero-1080.mp4'], [390, 844, '4ground9-hero-720.mp4']]) {
+      const { ctx, page } = await newPage({ viewport: { width: w, height: h } });
+      const reqs = new Set();
+      page.on('request', (r) => /\/videos\/.+\.(mp4|webm)$/.test(r.url()) && reqs.add(r.url().split('/').pop()));
+      await page.goto(u(), gotoOpts(name));
+      await page.waitForTimeout(1500);
+      const info = await page.evaluate(() => {
+        const v = document.querySelector('[data-hero-video]');
+        return { src: (v.currentSrc || '').split('/').pop(), duration: Number(v.duration.toFixed(2)), muted: v.muted, audio: v.mozHasAudio ?? (v.audioTracks ? v.audioTracks.length > 0 : null) };
+      });
+      // WebKit은 미디어 요청이 Playwright 요청 감시에 잡히지 않아 실제 사용 파일(currentSrc)로 확인
+      const fileOk = name === 'webkit' ? info.src === want : [...reqs].length === 1 && [...reqs][0] === want;
+      if (webkitNoMedia) {
+        check(name, `REQ-005 ${w}px: 요청 파일 ${want} (WebKit은 재생 불가로 길이·반복 확인 생략)`, [...reqs].length <= 1 && (reqs.size === 0 || [...reqs][0] === want), [...reqs].join(','));
+      } else {
+        // 끝 직전으로 이동 → 반복되어 처음으로 돌아오는지
+        await page.evaluate(() => { const v = document.querySelector('[data-hero-video]'); v.currentTime = v.duration - 0.3; });
+        await page.waitForTimeout(1200);
+        const looped = await page.evaluate(() => { const v = document.querySelector('[data-hero-video]'); return { t: Number(v.currentTime.toFixed(2)), paused: v.paused }; });
+        // WebKit 테스트 빌드는 반복 직후 일시정지되는 경우가 있어 처음으로 돌아왔는지만 확인
+        check(name, `REQ-005 ${w}px: ${want} 1개만 요청, 길이 ${info.duration}s(≈37.6), 무음, 끝→처음 반복`, fileOk && info.src === want && Math.abs(info.duration - 37.57) < 0.3 && info.muted && info.audio !== true && looped.t < 2 && (name === 'webkit' || !looped.paused), JSON.stringify({ reqs: [...reqs], info, looped }));
+      }
       await ctx.close();
     }
 
@@ -438,7 +472,7 @@ for (const name of selected) {
       const p1 = await heroState(page);
       check(name, '히어로: 정지 버튼 → 멈춤, 버튼 이름 "재생"', p1.paused && p1.state === 'paused' && p1.label === '배경 영상 재생', JSON.stringify(p1));
       const reqs = [];
-      page.on('request', (r) => r.url().endsWith('.webm') && reqs.push(r.url()));
+      page.on('request', (r) => /\/videos\/.+\.(mp4|webm)$/.test(r.url()) && reqs.push(r.url()));
       await page.reload(gotoOpts(name));
       await page.waitForTimeout(1200);
       const p2 = await heroState(page);
@@ -472,7 +506,7 @@ for (const name of selected) {
     {
       const { ctx, page } = await newPage({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
       const reqs = [];
-      page.on('request', (r) => r.url().endsWith('.webm') && reqs.push(r.url()));
+      page.on('request', (r) => /\/videos\/.+\.(mp4|webm)$/.test(r.url()) && reqs.push(r.url()));
       await page.goto(u(), gotoOpts(name));
       await page.waitForTimeout(1500);
       const r = await heroState(page);
@@ -517,7 +551,7 @@ for (const name of selected) {
       // 그래서 메인 HTML의 영상 경로를 실제로 없는 파일로 바꿔, 서버가 진짜 404를 돌려주게 한다.
       await ctx.route((url) => url.pathname === BASE, async (r) => {
         const res = await r.fetch();
-        const body = (await res.text()).replaceAll('rpg-hud-interaction.webm', 'missing-video-for-test.webm');
+        const body = (await res.text()).replace(/videos\/[A-Za-z0-9._-]+\.(mp4|webm)/g, 'videos/missing-video-for-test.$1');
         await r.fulfill({ response: res, body });
       });
       const page = await ctx.newPage();
@@ -842,7 +876,7 @@ for (const name of selected) {
       const page = await ctx.newPage();
       await ctx.route((url) => url.pathname === BASE, async (r) => {
         const res = await r.fetch();
-        await r.fulfill({ response: res, body: (await res.text()).replaceAll('rpg-hud-interaction.webm', 'missing-video-for-test.webm') });
+        await r.fulfill({ response: res, body: (await res.text()).replace(/videos\/[A-Za-z0-9._-]+\.(mp4|webm)/g, 'videos/missing-video-for-test.$1') });
       });
       await page.goto(u(), gotoOpts(name));
       await page.waitForTimeout(1800);
@@ -1048,6 +1082,21 @@ for (const name of selected) {
       await page.waitForTimeout(700);
       const p3 = await page.$eval('[data-hero-video]', (v) => v.paused);
       check(name, 'REQ-006 메뉴: 열면 영상 임시 정지 → 닫으면 재생 복원(저장 안 함), 사용자 정지는 유지', !p0 && p1 && !p2.paused && p2.stored === null && p3, JSON.stringify({ p0, p1, p2, p3 }));
+      await ctx.close();
+    }
+
+    // 회귀: 로드가 끝나기 전에 연 메뉴가 pageshow(일반 로드)로 닫히지 않고, 캐시 복원(persisted)일 때만 닫힌다
+    {
+      const { ctx, page } = await newPage({ viewport: { width: 1280, height: 800 } });
+      await page.goto(u(), gotoOpts(name));
+      await openMenu(page);
+      await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: false })));
+      await page.waitForTimeout(300);
+      const keep = await page.$eval('[data-menu]', (d) => d.open);
+      await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
+      await page.waitForTimeout(300);
+      const closed = !(await page.$eval('[data-menu]', (d) => d.open));
+      check(name, 'REQ-006 메뉴 회귀: 일반 pageshow에는 열린 메뉴 유지, 캐시 복원(persisted)에만 닫힘', keep && closed, JSON.stringify({ keep, closed }));
       await ctx.close();
     }
 
