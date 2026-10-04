@@ -2,7 +2,7 @@
 ## 현재 상태
 - 요청: REQ-001~REQ-007
   - REQ-005: 구현 완료 · 검토 대기 (PR #5) → [REQ-005 기록](#req-005-기록)
-  - REQ-007: 요청 문서만 보존 (미착수)
+  - REQ-007: 구현 완료 · 검토 대기 (PR #6, PR #5 위에 쌓음) → [REQ-007 기록](#req-007-기록)
 - 상태
   - REQ-001: **main 병합 완료** (PR #1, merge commit `0b7bb37`)
   - REQ-002·REQ-003: **main 병합 완료** (PR #2, merge commit `434251e`) → [REQ-002·003 기록](#req-002--req-003-기록)
@@ -752,4 +752,95 @@ npm run screenshots       # docs/screenshots/ 캡처 갱신
 - 반복 시 원본 끝의 1.1초 검정 구간을 지나 처음으로 돌아간다.
 - 영상에 사용자 이름("HWANG HYUNWOO")이 들어 있고 저장소는 public이다(영상 파일 공개 상태).
 - 저장소 크기: 영상 2개 약 16MB 추가.
+- 기획 변경 제안: 없음.
+
+# REQ-007 기록
+
+## 요약 (REQ-007)
+- The Odyssey 포스터 인상의 낮은 채도 스틸/오션 블루를 사이트 공통 키컬러로 적용했다(블랙·화이트 바탕 유지, 핵심 동작·강조에만).
+- SCROLL DOWN을 3회 정지에서 약 1.8초 **연속 루프**로 바꾸고, 히어로 영상 버튼을 **배경 모션 버튼**(영상 + 스크롤 선 함께 제어)으로 확장했다.
+- 브랜치 `feature/req-007-blue-scroll-loop` — REQ-005 브랜치(PR #5) 위에 쌓았다. PR #6의 base는 `feature/req-005-4ground9-hero-video`이며, PR #5가 main에 병합되면 base를 main으로 바꾸면 된다. 자동 병합·공개 배포 안 함.
+
+## 최종 토큰 (`src/styles/tokens.css`)
+포스터를 보고 정한 근사값이며 픽셀 추출값·영화 공식 색이 아니다.
+
+| 토큰 | 값 | 용도 | 대비 |
+| --- | --- | --- | --- |
+| `--color-accent` | `#3A6F8C` | 주요 버튼 바탕 | 흰 글자 5.03:1, 검정 배경과 경계 3.61:1 |
+| `--color-accent-hover` | `#2D5973` | 주요 버튼 hover 바탕 | 흰 글자 6.91:1 |
+| `--color-accent-readable` | `#78A9C6` | 검정 위 링크·라벨·포커스·SCROLL 선·hover | 배경 7.81:1, 카드 표면 7.27:1 |
+| `--color-accent-surface` | `#102532` | 어두운 블루 면 (현재 예비) | 흰 글자 14.45:1 |
+| `--color-accent-hero` | `#A7CBE1` | 히어로 제목 강조 행 | 영상이 완전히 흰 프레임이어도 오버레이 위 3.36:1 (큰 글자 3:1 이상) |
+| `--color-focus` | = accent-readable | 포커스 외곽선 (안쪽 어두운 간격 유지) | — |
+
+**조정 이유:** 제안값 accent `#2D5973`은 흰 글자 대비는 충분하지만 검정 배경과 버튼 경계가 2.63:1로 낮아(비텍스트 3:1 미달) 같은 계열에서 `#3A6F8C`로 밝혔고, `#2D5973`은 hover 바탕으로 쓴다. 히어로 강조 행은 accent-readable(`#78A9C6`)로는 밝은 영상 프레임에서 3:1을 보장하지 못해 한 단계 밝은 `#A7CBE1`을 따로 두었다. readable·surface는 제안값 그대로.
+
+## 적용 위치
+- **공통(global.css):** 본문 링크, 텍스트 선택, 섹션 라벨(Works/About/Contact), 주요 버튼(블루 바탕+흰 글자, hover는 진한 블루+밑줄+밝은 테두리), 보조 버튼 hover 테두리, 포커스 외곽선.
+- **히어로:** 제목 강조 행(데이터 `{ text: 'FOR PLAY', accent: true }` — 문구에 하드코딩하지 않음, lang·soft hyphen·글자 확대 유지), SCROLL DOWN 선. 히어로 영상 흑백·오버레이는 유지.
+- **헤더·메뉴:** 메뉴 버튼 hover/focus, 열린 메뉴의 hover/focus 항목과 번호(기본 항목은 흰색, 어두운 블러 배경 유지).
+- **입장 화면:** 가운데 이름.
+- **카드:** hover 테두리, hover/focus-within 제목(블루+밑줄).
+- **상세:** 목록으로 링크 hover(블루+밑줄), 이전/다음 hover 테두리·제목, 버튼 포커스. 작업물 이미지·영상에는 필터를 씌우지 않음.
+- 빨간 날짜 색은 도입하지 않았다. 흰 바탕 보조 요소(본문 바로가기, 상세 영상 재생·확대 버튼)는 기존 inverse 토큰 유지.
+
+## 동작
+- **SCROLL DOWN:** 텍스트 고정, 블루 선만 위→아래 이동·페이드, 1.8초 주기 무한 반복. JS가 있을 때만 움직인다(JS가 없으면 정지 수단이 없으므로 정적 표시).
+- **정지 조건:** 사용자 정지(저장) / 히어로 화면 밖·탭 숨김·메뉴 열림(임시, 저장 안 함) / 모션 줄이기(반복 없음, 정적 표시).
+- **배경 모션 버튼:** 하나의 버튼이 영상과 스크롤 선을 함께 멈추고 재생한다. 이름은 "배경 모션 일시정지 (배경 영상·스크롤 안내)" / "배경 모션 재생 (배경 영상·스크롤 안내)". 기존 `hero-video-paused` 저장 키를 그대로 써서 이전에 영상을 멈춘 방문자는 정지 상태 유지.
+- **영상 실패·자동 재생 차단:** 버튼을 비활성화하지 않고 남겨 스크롤 선을 멈출 수 있다(이전에는 실패 시 비활성). 안내 문구도 그에 맞게 수정.
+- **영상이 없는 설정(`videoDesktop`·`videoMobile` 모두 비움):** 버튼 자체가 없으므로 정지 수단 없는 무한 반복을 피하려고 SCROLL DOWN은 3회 후 멈춘다(`hero--no-video`). 별도 빌드로 확인: 버튼 없음, 반복 3회, 7.6초 후 종료.
+- Works 앵커, 44px 터치 영역, 키보드 초점, R1(앵커 이동 후 제목 초점)·R2(넓은 화면 정렬) 유지.
+
+## 커밋 · PR (REQ-007)
+- `61071f6` feat: 블루 키컬러·SCROLL DOWN 연속 루프·배경 모션 제어 (코드·검사·스크린샷·녹화)
+- 이 기록 커밋: docs (STATUS·README·REQUESTS 상태)
+- PR #6 `feature/req-007-blue-scroll-loop` → base `feature/req-005-4ground9-hero-video` (PR #5 위에 쌓음). 자동 병합·배포 안 함.
+
+## 주요 변경 파일 (REQ-007)
+- `src/styles/tokens.css`, `src/styles/global.css` — 토큰과 공통 적용
+- `src/data/hero.ts` — `TitleLine`에 `accent`, FOR PLAY 행 강조
+- `src/components/Hero.astro` — 강조 행, 연속 루프, 배경 모션 제어 스크립트, 영상 없음 대비
+- `src/components/Header.astro`, `Intro.astro`, `ProjectCard.astro`, `src/pages/projects/[slug].astro` — hover/focus·이름 색
+- `scripts/verify.mjs` — REQ-007 검사 추가·기존 기대값 변경, 메뉴 열림 최종 상태 대기 보강
+- `scripts/screenshots.mjs` — hover/focus 상태 캡처(`act` 훅), `scripts/record-motion.mjs` — 스크롤 루프 녹화
+
+## 검증 결과 (REQ-007)
+환경: Windows 10, Node 24.19, Playwright 1.63. 화면 크기 에뮬레이션(실제 기기 아님).
+
+| 항목 | 결과 |
+| --- | --- |
+| `npm run check` | 오류 0, 경고 0, 힌트 0 |
+| `npm run build` | 성공 (5페이지) |
+| `npm run verify` Chromium | **367/367 통과** |
+| `npm run verify` Firefox | **367/367 통과** |
+| `npm run verify` WebKit | **365/365 통과** (Tab 순환 2개 제외, 기존과 같음) |
+
+**새 검사 (3개 브라우저)**
+- 색: CTA 블루 바탕+흰 글자, 섹션 라벨·SCROLL 선 readable, 강조 행은 FOR PLAY만 hero 블루·나머지 흰색, 히어로 흑백 유지.
+- hover·focus: CTA hover(진한 블루+밑줄+밝은 테두리)·focus(블루 외곽선+어두운 간격), 메뉴 버튼 hover, 카드 테두리·제목, 열린 메뉴 기본 흰색 → hover 항목·번호 블루.
+- 연속 루프: 7.6초 후에도 `infinite`·4회째 이상·running.
+- 배경 모션 버튼: 영상+선 함께 정지(이름 확인) → 새로고침 후 유지 → 다시 재생.
+- 임시 정지: 메뉴 열림·탭 숨김·화면 밖이면 정지, 돌아오면 재개, 저장 안 함.
+- 영상 로드 실패: 선은 계속 → 버튼으로 정지 가능.
+- 상세: 목록 링크 hover, 버튼 focus 외곽선, 작업물 필터 없음.
+- 모션 줄이기: 선 애니메이션 없음(기존 검사 유지).
+- **기대값 변경:** SCROLL DOWN 반복 `3` → `infinite`, 버튼 이름, 자동 재생 차단·영상 실패 시 버튼 활성(이전 비활성).
+- **검사 보강:** Firefox에서 메뉴 열림 최종 상태가 부하 때문에 0.9994에 걸려 1회 실패 → 고정 700ms 대기를 "모두 1이 될 때까지(최대 1.5초)"로 바꿈. 제품 코드 문제 아님.
+- 화면 폭(320/390, 667×375/844×390, 1440/1920/2560/3840, 글자 200%)의 넘침·겹침·제어 접근은 기존 레이아웃 검사가 모두 통과.
+
+**스크린샷 (`docs/screenshots/`, 전체 갱신 + 새 상태 캡처)**
+- 기본: `home-*`, `wide-home-*`, `menu-open-*`, `wide-menu-*`, 상세 캡처가 블루 적용 기준으로 갱신.
+- 상태: `state-cta-hover-1440`, `state-cta-focus-1440`, `state-card-hover-1440`, `state-menu-hover-1440`, `state-menu-focus-390`, `state-detail-hover-1440`.
+
+**녹화 (`docs/recordings/`)**
+- `scroll-loop-desktop-1440.webm`, `scroll-loop-mobile-390.webm` — 입장 연출 없이 9.5초 관찰(정지 직전 5번째 반복 중) → 배경 모션 버튼 → 2.5초 정지 유지. 녹화 중 측정: 정지 직전 iteration 4(0부터), 클릭 후 `paused`.
+- `motion-*-1440/390.webm` — 입장·메뉴 녹화도 새 색으로 다시 찍음.
+- 사용자 정지 외 조건(화면 밖·탭 숨김·메뉴·모션 줄이기)은 녹화 대신 자동 검사 결과로 남겼다.
+
+## 미검증 · 남은 사항 (REQ-007)
+- 실제 기기·실제 화면에서의 색 인상(디스플레이마다 다름), 실제 화면 낭독기의 버튼 이름 낭독 — 미검증.
+- 대비는 토큰 값 계산 기준이다. 히어로 강조 행은 영상의 가장 밝은 프레임(흰색)을 가정한 최악값.
+- `--color-accent-surface`는 정의만 하고 아직 쓰는 곳이 없다(어두운 블루 면이 필요할 때 사용).
+- REQ-005의 남은 사항(영상 첫 2초 타이틀 화면 겹침, 영상 속 사용자 이름, public 저장소)은 그대로.
 - 기획 변경 제안: 없음.

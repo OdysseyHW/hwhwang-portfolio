@@ -470,7 +470,7 @@ for (const name of selected) {
       await page.click('[data-hero-toggle]');
       await page.waitForTimeout(300);
       const p1 = await heroState(page);
-      check(name, '히어로: 정지 버튼 → 멈춤, 버튼 이름 "재생"', p1.paused && p1.state === 'paused' && p1.label === '배경 영상 재생', JSON.stringify(p1));
+      check(name, '히어로: 정지 버튼 → 멈춤, 버튼 이름 "배경 모션 재생"', p1.paused && p1.state === 'paused' && p1.label === '배경 모션 재생 (배경 영상·스크롤 안내)', JSON.stringify(p1));
       const reqs = [];
       page.on('request', (r) => /\/videos\/.+\.(mp4|webm)$/.test(r.url()) && reqs.push(r.url()));
       await page.reload(gotoOpts(name));
@@ -540,7 +540,7 @@ for (const name of selected) {
       await page.goto(u(), gotoOpts(name));
       await page.waitForTimeout(1200);
       const s = await heroState(page);
-      check(name, '히어로 자동 재생 차단: 포스터 유지·버튼 "재생"·오류 없음', s.state === 'paused' && !s.visible && s.posterOk && !s.disabled && s.label === '배경 영상 재생' && errs.length === 0, `${JSON.stringify(s)} ${errs.join('|')}`);
+      check(name, '히어로 자동 재생 차단: 포스터 유지·오류 없음·스크롤 안내가 움직이므로 버튼은 "배경 모션 일시정지"(정지 수단 유지)', !s.visible && s.posterOk && !s.disabled && s.label === '배경 모션 일시정지 (배경 영상·스크롤 안내)' && errs.length === 0, `${JSON.stringify(s)} ${errs.join('|')}`);
       await ctx.close();
     }
 
@@ -560,7 +560,7 @@ for (const name of selected) {
       await page.goto(u(), gotoOpts(name));
       await page.waitForTimeout(2000);
       const s = await heroState(page);
-      check(name, '히어로 영상 로드 실패: 포스터 유지 + 버튼 비활성 안내', s.video === 'failed' && !s.visible && s.posterOk && s.disabled, JSON.stringify(s));
+      check(name, '히어로 영상 로드 실패: 포스터 유지, 버튼은 남아 스크롤 안내 모션 제어 (REQ-007)', s.video === 'failed' && !s.visible && s.posterOk && !s.disabled && s.label === '배경 모션 일시정지 (배경 영상·스크롤 안내)', JSON.stringify(s));
       await page.click('.hero__cta');
       await page.waitForTimeout(400);
       check(name, '히어로 영상 로드 실패: 작업물 보기 이동 정상', page.url().endsWith('#works') && errs.length === 0, page.url());
@@ -910,7 +910,7 @@ for (const name of selected) {
       const cs = getComputedStyle(dot);
       return { name: a.textContent.replace(/\s+/g, ' ').trim(), href: a.getAttribute('href'), w: r.width, h: r.height, left: r.left, bottom: r.bottom, vh: innerHeight, dur: cs.animationDuration, count: cs.animationIterationCount };
     });
-    check(name, 'REQ-006 SCROLL DOWN: 왼쪽 아래·이름·44px·#works·1.8초×3회', /Scroll Down/i.test(info.name) && info.href === '#works' && info.w >= 44 && info.h >= 44 && info.left < 200 && info.bottom <= info.vh && info.dur === '1.8s' && info.count === '3', JSON.stringify(info));
+    check(name, 'REQ-006/007 SCROLL DOWN: 왼쪽 아래·이름·44px·#works·1.8초 연속 루프', /Scroll Down/i.test(info.name) && info.href === '#works' && info.w >= 44 && info.h >= 44 && info.left < 200 && info.bottom <= info.vh && info.dur === '1.8s' && info.count === 'infinite', JSON.stringify(info));
     await page.evaluate(() => document.querySelector('#contact').scrollIntoView());
     await page.waitForTimeout(500);
     const paused = await page.$eval('.hero__scroll-dot', (d) => getComputedStyle(d).animationPlayState);
@@ -977,7 +977,8 @@ for (const name of selected) {
       await page.waitForTimeout(60);
       const mid = await page.$$eval('[data-menu] .site-menu__list li', (lis) => lis.map((li) => Number(getComputedStyle(li).opacity)));
       const timing = await page.$$eval('[data-menu] .site-menu__list li', (lis) => lis.map((li) => getComputedStyle(li).transitionDelay.split(',')[0].trim()));
-      await page.waitForTimeout(700);
+      // 최종 상태: 부하가 걸린 환경에서도 끝까지 기다린다 (고정 700ms는 Firefox에서 0.9994에 걸린 적이 있음)
+      await page.waitForFunction(() => [...document.querySelectorAll('[data-menu] .site-menu__list li')].every((li) => getComputedStyle(li).opacity === '1'), null, { timeout: 1500 }).catch(() => {});
       const end = await page.$$eval('[data-menu] .site-menu__list li', (lis) => lis.map((li) => Number(getComputedStyle(li).opacity)));
       const modal = await page.$eval('[data-menu]', (d) => d.matches(':modal'));
       check(name, 'REQ-006 메뉴: 열림 모션(항목 순차 등장)·최종 상태·모달(배경 inert)', mid.some((o) => o < 1) && end.every((o) => o === 1) && modal && timing.join() === '0.12s,0.19s,0.26s', JSON.stringify({ mid, end, timing, modal }));
@@ -1157,6 +1158,142 @@ for (const name of selected) {
       JSON.stringify({ lefts, menuLogo, menuLink, rights, rightLine, menuBtn, closeBtn, grid: m.grid }),
     );
     await ctx.close();
+  }
+
+  // ---------- REQ-007: 블루 키컬러 · SCROLL DOWN 연속 루프 · 배경 모션 제어 ----------
+  {
+    const rgb = { accent: 'rgb(58, 111, 140)', accentHover: 'rgb(45, 89, 115)', readable: 'rgb(120, 169, 198)', hero: 'rgb(167, 203, 225)', text: 'rgb(245, 245, 245)' };
+    const dotState = (page) =>
+      page.evaluate(() => {
+        const d = document.querySelector('.hero__scroll-dot');
+        const cs = getComputedStyle(d);
+        const a = d.getAnimations()[0];
+        return { play: cs.animationPlayState, count: cs.animationIterationCount, iter: a ? a.effect.getComputedTiming().currentIteration : null, animPlay: a ? a.playState : 'none', motionPaused: document.querySelector('[data-hero]').classList.contains('is-motion-paused') };
+      });
+    const PAUSE = '배경 모션 일시정지 (배경 영상·스크롤 안내)';
+    const PLAY = '배경 모션 재생 (배경 영상·스크롤 안내)';
+
+    // 1) 색 적용 위치 (기본 상태)
+    {
+      const { ctx, page } = await newPage({ viewport: { width: 1440, height: 900 } });
+      await page.goto(u(), gotoOpts(name));
+      const c = await page.evaluate(() => {
+        const g = (q, p) => getComputedStyle(document.querySelector(q))[p];
+        const accentLine = document.querySelector('.hero__line--accent');
+        return {
+          ctaBg: g('.hero__cta', 'backgroundColor'),
+          ctaText: g('.hero__cta', 'color'),
+          eyebrow: g('#works .eyebrow', 'color'),
+          accentLine: accentLine ? getComputedStyle(accentLine).color : null,
+          accentText: accentLine?.textContent.trim(),
+          otherLines: [...document.querySelectorAll('.hero__line:not(.hero__line--accent)')].map((l) => getComputedStyle(l).color),
+          dot: g('.hero__scroll-dot', 'backgroundColor'),
+          heroFilter: g('.hero__poster', 'filter'),
+          focusToken: getComputedStyle(document.documentElement).getPropertyValue('--color-focus').trim(),
+        };
+      });
+      check(name, 'REQ-007 색: CTA 블루 바탕+흰 글자, 섹션 라벨·SCROLL 선 밝은 블루, 강조 행 FOR PLAY만 블루, 히어로 흑백 유지', c.ctaBg === rgb.accent && c.ctaText === rgb.text && c.eyebrow === rgb.readable && c.accentLine === rgb.hero && c.accentText === 'FOR PLAY' && c.otherLines.every((x) => x === rgb.text) && c.dot === rgb.readable && c.heroFilter.includes('grayscale'), JSON.stringify(c));
+
+      // 2) hover·focus 상태
+      await page.hover('.hero__cta');
+      await page.waitForTimeout(250);
+      const ctaHover = await page.$eval('.hero__cta', (e) => ({ bg: getComputedStyle(e).backgroundColor, deco: getComputedStyle(e).textDecorationLine, border: getComputedStyle(e).borderTopColor }));
+      await page.$eval('.hero__cta', (e) => e.focus());
+      await page.keyboard.press('Shift'); // 키보드 상호작용으로 :focus-visible 유도
+      const ctaFocus = await page.$eval('.hero__cta', (e) => ({ outline: getComputedStyle(e).outlineColor, gap: getComputedStyle(e).boxShadow }));
+      await page.hover('[data-menu-toggle]');
+      await page.waitForTimeout(250);
+      const menuBtnHover = await page.$eval('[data-menu-toggle]', (e) => getComputedStyle(e).color);
+      check(name, 'REQ-007 hover·focus: CTA hover 진한 블루+밑줄+밝은 테두리, focus 블루 외곽선+어두운 간격, 메뉴 버튼 hover 블루', ctaHover.bg === rgb.accentHover && ctaHover.deco.includes('underline') && ctaHover.border === rgb.readable && ctaFocus.outline === rgb.readable && ctaFocus.gap.includes('10, 10, 10') && menuBtnHover === rgb.readable, JSON.stringify({ ctaHover, ctaFocus, menuBtnHover }));
+      // 카드 hover
+      await page.evaluate(() => document.querySelector('#works').scrollIntoView({ behavior: 'instant' }));
+      await page.hover('.card >> nth=0');
+      await page.waitForTimeout(250);
+      const card = await page.evaluate(() => { const c = document.querySelector('.card'); const t = c.querySelector('.card__title'); return { border: getComputedStyle(c).borderTopColor, title: getComputedStyle(t).color, deco: getComputedStyle(t).textDecorationLine }; });
+      // 메뉴 항목 hover (기본 항목은 흰색)
+      await openMenu(page);
+      await page.mouse.move(1400, 880); // 직전 카드 hover 위치가 메뉴 항목 위가 되지 않도록 빈 곳으로
+      await page.waitForTimeout(250);
+      const before = await page.$$eval('[data-menu] .site-menu__link', (ls) => ls.map((l) => getComputedStyle(l).color));
+      await page.hover('[data-menu] .site-menu__link >> nth=1');
+      await page.waitForTimeout(250);
+      const menuHover = await page.$$eval('[data-menu] .site-menu__link', (ls) => ls.map((l) => ({ c: getComputedStyle(l).color, num: getComputedStyle(l.querySelector('.site-menu__num')).color })));
+      check(name, 'REQ-007 hover: 카드 테두리·제목 블루+밑줄, 열린 메뉴 기본 흰색 → hover 항목·번호 블루', card.border === rgb.readable && card.title === rgb.readable && card.deco.includes('underline') && before.slice(1).every((x) => x === rgb.text) && menuHover[1].c === rgb.readable && menuHover[1].num === rgb.readable && menuHover[2].c === rgb.text, JSON.stringify({ card, before, menuHover }));
+      await ctx.close();
+    }
+
+    // 3) SCROLL DOWN 연속 루프: 3회(약 6.5초)를 넘어도 계속
+    {
+      const { ctx, page } = await newPage({ viewport: { width: 1440, height: 900 } });
+      await page.goto(u(), gotoOpts(name));
+      await page.waitForTimeout(7600);
+      const d = await dotState(page);
+      check(name, `REQ-007 SCROLL DOWN: 3회를 넘어 계속 반복 (현재 ${d.iter}회째, ${d.animPlay})`, d.count === 'infinite' && d.iter >= 3 && d.animPlay === 'running' && d.play === 'running', JSON.stringify(d));
+
+      // 4) 배경 모션 버튼: 영상과 스크롤 선을 함께 정지 → 새로고침해도 유지 → 다시 재생
+      await page.click('[data-hero-toggle]');
+      await page.waitForTimeout(300);
+      const p1 = { ...(await dotState(page)), video: await page.$eval('[data-hero-video]', (v) => v.paused), label: await page.getAttribute('[data-hero-toggle]', 'aria-label') };
+      await page.reload(gotoOpts(name));
+      await page.waitForTimeout(800);
+      const p2 = { ...(await dotState(page)), video: await page.$eval('[data-hero-video]', (v) => v.paused) };
+      await page.click('[data-hero-toggle]');
+      await page.waitForTimeout(1500);
+      const p3 = { ...(await dotState(page)), video: await page.$eval('[data-hero-video]', (v) => v.paused), label: await page.getAttribute('[data-hero-toggle]', 'aria-label') };
+      check(name, 'REQ-007 배경 모션 버튼: 영상+스크롤 선 함께 정지(이름에 범위 표시) → 새로고침 유지 → 다시 재생', p1.video && p1.play === 'paused' && p1.label === PLAY && p2.video && p2.play === 'paused' && !p3.video && p3.play === 'running' && p3.label === PAUSE, JSON.stringify({ p1, p2, p3 }));
+
+      // 5) 메뉴 열림·탭 숨김·화면 밖에서 스크롤 선 정지 (임시, 저장 안 함)
+      await openMenu(page);
+      const m = await dotState(page);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(400);
+      const mc = await dotState(page);
+      await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); });
+      const hid = await dotState(page);
+      await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });
+      const vis = await dotState(page);
+      await page.evaluate(() => document.querySelector('#contact').scrollIntoView({ behavior: 'instant' }));
+      await page.waitForTimeout(500);
+      const off = await dotState(page);
+      const stored = await page.evaluate(() => localStorage.getItem('hero-video-paused'));
+      check(name, 'REQ-007 스크롤 선: 메뉴 열림·탭 숨김·화면 밖이면 정지, 돌아오면 재개 (정지 저장 안 함)', m.play === 'paused' && mc.play === 'running' && hid.play === 'paused' && vis.play === 'running' && off.play === 'paused' && stored === null, JSON.stringify({ m, mc, hid, vis, off, stored }));
+      await ctx.close();
+    }
+
+    // 6) 영상 로드 실패: 버튼으로 스크롤 선을 멈출 수 있음
+    {
+      const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+      await ctx.addInitScript(() => { try { sessionStorage.setItem('hw-intro-played', '1'); } catch {} });
+      await ctx.route((url) => url.pathname === BASE, async (r) => {
+        const res = await r.fetch();
+        await r.fulfill({ response: res, body: (await res.text()).replace(/videos\/[A-Za-z0-9._-]+\.(mp4|webm)/g, 'videos/missing-video-for-test.$1') });
+      });
+      const page = await ctx.newPage();
+      await page.goto(u(), gotoOpts(name));
+      await page.waitForTimeout(2000);
+      const before = await dotState(page);
+      const failedState = await page.$eval('[data-hero]', (h) => h.dataset.video);
+      await page.click('[data-hero-toggle]');
+      await page.waitForTimeout(300);
+      const after = await dotState(page);
+      check(name, 'REQ-007 영상 로드 실패: 스크롤 선은 계속 → 버튼으로 정지 가능', failedState === 'failed' && before.play === 'running' && after.play === 'paused', JSON.stringify({ failedState, before, after }));
+      await ctx.close();
+    }
+
+    // 7) 상세 페이지: 링크·버튼·포커스 같은 규칙, 작업물 이미지 원본 색
+    {
+      const { ctx, page } = await newPage({ viewport: { width: 1280, height: 800 } });
+      await page.goto(u('projects/rpg-hud-character-ui/'), gotoOpts(name));
+      await page.hover('.breadcrumb a');
+      await page.waitForTimeout(250);
+      const bc = await page.$eval('.breadcrumb a', (e) => ({ c: getComputedStyle(e).color, deco: getComputedStyle(e).textDecorationLine }));
+      await page.$eval('.pager__all', (e) => e.focus());
+      await page.keyboard.press('Shift');
+      const pf = await page.$eval('.pager__all', (e) => getComputedStyle(e).outlineColor);
+      const filters = await page.$$eval('main img, main video', (els) => els.filter((e) => getComputedStyle(e).filter !== 'none').length);
+      check(name, 'REQ-007 상세: 목록 링크 hover 블루+밑줄, 버튼 focus 블루 외곽선, 작업물 필터 없음', bc.c === rgb.readable && bc.deco.includes('underline') && pf === rgb.readable && filters === 0, JSON.stringify({ bc, pf, filters }));
+      await ctx.close();
+    }
   }
 
   // ---------- 200% 확대 (1280px 창 = CSS 640px) ----------

@@ -7,8 +7,11 @@ import heroPoster from '../assets/hero/4ground9-poster.jpg';
  * 메인 히어로 설정. 최종 영상·문구가 정해지면 이 파일만 바꾸면 된다.
  * 영상 경로는 public/ 기준 (예: 'videos/showreel.mp4'). 배포 하위 경로(BASE_PATH)는 자동 반영된다.
  */
-/** 제목 한 줄. 문자열이면 titleLang을 따르고, 줄마다 언어가 다르면 { text, lang }으로 쓴다. */
-export type TitleLine = string | { text: string; lang?: string };
+/**
+ * 제목 한 줄. 문자열이면 titleLang을 따른다.
+ * 객체로 쓰면 줄별 언어(lang)와 블루 강조(accent: true)를 지정할 수 있다 — 특정 문구에 묶지 않고 데이터로 고른다.
+ */
+export type TitleLine = string | { text: string; lang?: string; accent?: boolean };
 
 export interface HeroInfo {
   /**
@@ -42,7 +45,7 @@ export interface HeroInfo {
 }
 
 export const hero: HeroInfo = {
-  titleLines: ['GAME UI', 'DE\u00ADSIG\u00ADNED', 'FOR PLAY'], // 임시 헤드라인 (최종 문구 미정). \u00AD = 필요할 때만 'DE-/SIG-/NED'로 끊음
+  titleLines: ['GAME UI', 'DE\u00ADSIG\u00ADNED', { text: 'FOR PLAY', accent: true }], // 임시 헤드라인. accent: true = 블루 강조 행 (REQ-007) (최종 문구 미정). \u00AD = 필요할 때만 'DE-/SIG-/NED'로 끊음
   titleLang: 'en',
   // 예) 한글: titleLines: ['플레이를', '설계하는', '디자이너'], titleLang: 'ko'
   // 예) 혼합: titleLines: ['GAME UI', { text: '디자이너', lang: 'ko' }], titleLang: 'en'

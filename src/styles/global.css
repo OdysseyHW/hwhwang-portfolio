@@ -68,7 +68,7 @@ a {
 }
 
 a:not([class]) {
-  color: var(--color-text);
+  color: var(--color-accent-readable);
   text-decoration-thickness: 1px;
   text-underline-offset: 0.2em;
   overflow-wrap: anywhere; /* 긴 URL 대응 */
@@ -91,8 +91,8 @@ button {
 }
 
 ::selection {
-  background: var(--color-inverse-bg);
-  color: var(--color-inverse-text);
+  background: var(--color-accent);
+  color: var(--color-text);
 }
 
 /* ---------- 공통 유틸리티 ---------- */
@@ -178,7 +178,7 @@ button {
 .eyebrow {
   display: block;
   margin-bottom: var(--space-2);
-  color: var(--color-text-muted);
+  color: var(--color-accent-readable); /* 섹션 라벨 Works/About/Contact */
   font-size: var(--text-sm);
   font-weight: var(--weight-ui);
   letter-spacing: 0.14em;
@@ -211,19 +211,22 @@ button {
 }
 
 .button:hover {
-  border-color: var(--color-text);
+  border-color: var(--color-accent-readable);
   background: var(--color-surface-raised);
 }
 
+/* 주요 버튼: 블루 바탕 + 흰 글자. hover는 색만이 아니라 밑줄과 밝은 테두리로도 표시 */
 .button--primary {
-  background: var(--color-inverse-bg);
-  border-color: var(--color-inverse-bg);
-  color: var(--color-inverse-text);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-text);
 }
 
 .button--primary:hover {
-  background: var(--color-inverse-hover);
-  border-color: var(--color-inverse-hover);
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-readable);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
 }
 
 .tag-list {
