@@ -1,6 +1,9 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import ProjectCard from '../components/ProjectCard.astro';
+import Hero from '../components/Hero.astro';
+// 히어로 제목 글꼴을 미리 받아 글꼴 교체로 인한 흔들림을 줄인다 (CSS의 @font-face와 같은 파일)
+import displayFontUrl from '../assets/fonts/ZalandoSansExpanded-wght.ttf?url';
 import { site } from '../data/site';
 import { getFeaturedProjects } from '../lib/projects';
 import { withBase } from '../lib/url';
@@ -11,20 +14,12 @@ const resumeHref = site.resumeUrl ? (/^https?:\/\//.test(site.resumeUrl) ? site.
 const hasContact = Boolean(site.email) || site.socialLinks.length > 0 || Boolean(site.resumeUrl);
 ---
 
-<BaseLayout>
-  <section class="hero" aria-labelledby="hero-title">
-    <div class="container">
-      <p class="eyebrow">{site.jobTitle}</p>
-      <h1 id="hero-title" class="hero__title">{site.name}</h1>
-      <p class="hero__intro">{site.intro}</p>
-      <div class="hero__actions">
-        <a class="button button--primary" href="#works">작업물 보기</a>
-        {hasContact && <a class="button" href="#contact">연락하기</a>}
-      </div>
-    </div>
-  </section>
+<BaseLayout overlayHeader>
+  <link slot="head" rel="preload" href={displayFontUrl} as="font" type="font/ttf" crossorigin />
 
-  <section id="works" class="section section--works" aria-labelledby="works-title">
+  <Hero />
+
+  <section id="works" class="section" aria-labelledby="works-title">
     <div class="container">
       <header class="section-header">
         <span class="eyebrow">Works</span>
@@ -32,9 +27,9 @@ const hasContact = Boolean(site.email) || site.socialLinks.length > 0 || Boolean
       </header>
       <ul class="project-grid">
         {
-          projects.map((project, i) => (
+          projects.map((project) => (
             <li>
-              <ProjectCard project={project} eager={i < 3} />
+              <ProjectCard project={project} />
             </li>
           ))
         }
@@ -140,32 +135,6 @@ const hasContact = Boolean(site.email) || site.socialLinks.length > 0 || Boolean
 </BaseLayout>
 
 <style>
-  .hero {
-    padding-block: clamp(2.5rem, 1.5rem + 5vw, 5.5rem) clamp(1.5rem, 1rem + 2vw, 2.5rem);
-  }
-
-  .hero__title {
-    font-size: var(--text-2xl);
-  }
-
-  .hero__intro {
-    max-width: 40ch;
-    margin-top: var(--space-4);
-    color: var(--color-text-muted);
-    font-size: var(--text-md);
-  }
-
-  .hero__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-    margin-top: var(--space-5);
-  }
-
-  .section--works {
-    padding-top: var(--space-6);
-  }
-
   /*
    * 프로젝트 목록: 1열 → 2열(600px~, 카드 최소 폭 확보 시) → 3열(1200px~)
    * minmax의 최소값에 '최대 열 수' 기준 폭을 넣어 열 수 상한을 둔다.

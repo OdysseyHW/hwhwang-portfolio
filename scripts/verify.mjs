@@ -60,8 +60,11 @@ await new Promise((r) => server.listen(PORT, r));
 const results = [];
 // Playwright의 Windows용 WebKit은 미디어 재생 기능이 없어 <video>가 load 이벤트를 막는다 → DOM 준비 시점까지만 대기
 const gotoOpts = (name) => (name === 'webkit' ? { waitUntil: 'domcontentloaded' } : {});
-const fail = (browser, name, detail) => results.push({ browser, name, ok: false, detail });
-const pass = (browser, name, detail = '') => results.push({ browser, name, ok: true, detail });
+//   VERBOSE=1             항목마다 바로 출력 (멈춘 위치 확인용)
+const VERBOSE = process.env.VERBOSE === '1';
+const log = (r) => VERBOSE && console.log(`${r.ok ? '✓' : '✗'} [${r.browser}] ${r.name}${r.ok ? '' : ' — ' + r.detail}`);
+const fail = (browser, name, detail) => { const r = { browser, name, ok: false, detail }; results.push(r); log(r); };
+const pass = (browser, name, detail = '') => { const r = { browser, name, ok: true, detail }; results.push(r); log(r); };
 const check = (browser, name, cond, detail = '') => (cond ? pass(browser, name, detail) : fail(browser, name, detail));
 
 if (SHOTS) await mkdir(new URL('../verify-report/', import.meta.url), { recursive: true });
@@ -329,6 +332,280 @@ for (const name of selected) {
     }));
     check(name, '선택 항목 없는 프로젝트: 빈 항목 숨김', !info.overview.includes('기간') && !info.overview.includes('장르') && info.video === 0 && info.emptySections === 0, JSON.stringify(info));
     await ctx.close();
+  }
+
+  // ---------- 메인 히어로 배경 영상 (REQ-003) ----------
+  {
+    const heroState = (page) =>
+      page.evaluate(() => {
+        const root = document.querySelector('[data-hero]');
+        const v = document.querySelector('[data-hero-video]');
+        const t = document.querySelector('[data-hero-toggle]');
+        const poster = document.querySelector('.hero__poster');
+        return {
+          state: root?.dataset.state,
+          video: root?.dataset.video ?? '',
+          visible: root?.classList.contains('is-video-visible'),
+          paused: v?.paused,
+          time: v?.currentTime ?? 0,
+          loop: v?.loop,
+          muted: v?.muted,
+          playsinline: v?.hasAttribute('playsinline'),
+          label: t?.getAttribute('aria-label'),
+          disabled: t?.disabled,
+          posterOk: Boolean(poster?.complete && poster.naturalWidth > 0),
+        };
+      });
+    const webkitNoMedia = name === 'webkit'; // Windows용 WebKit 빌드는 미디어 재생 불가 → 포스터 대체를 확인
+
+    // 1) 자동 재생·반복·무음·파일 1개만 요청
+    for (const vp of [{ width: 1440, height: 900, label: '데스크톱' }, { width: 390, height: 844, label: '모바일' }]) {
+      const { ctx, page } = await newPage({ viewport: { width: vp.width, height: vp.height } });
+      const videoReqs = new Set();
+      page.on('request', (r) => r.url().endsWith('.webm') && videoReqs.add(r.url()));
+      await page.goto(u(), gotoOpts(name));
+      await page.waitForTimeout(1500);
+      const a = await heroState(page);
+      await page.waitForTimeout(1000);
+      const b = await heroState(page);
+      const title = await page.$eval('#hero-title', (h) => h.textContent.replace(/\u00AD/g, '').replace(/\s+/g, ' ').trim()); // soft hyphen 제외
+      check(name, `히어로 ${vp.label}: 제목이 HTML 텍스트`, title === 'GAME UI DESIGNED FOR PLAY', title);
+      check(name, `히어로 ${vp.label}: muted·loop·playsinline`, a.muted && a.loop && a.playsinline, JSON.stringify(a));
+      check(name, `히어로 ${vp.label}: 영상 파일 1개만 요청`, videoReqs.size <= 1, [...videoReqs].join(','));
+      if (webkitNoMedia) {
+        check(name, `히어로 ${vp.label}: 재생 불가 환경 → 포스터 유지 (WebKit 제약)`, !b.visible && b.posterOk && b.state === 'paused', JSON.stringify(b));
+      } else {
+        check(name, `히어로 ${vp.label}: 배경 영상 실제 재생`, b.state === 'playing' && !b.paused && b.visible && b.time > a.time, `${a.time.toFixed(2)}s → ${b.time.toFixed(2)}s`);
+      }
+      const tb = await page.locator('[data-hero-toggle]').boundingBox();
+      check(name, `히어로 ${vp.label}: 재생/정지 버튼 44px 이상`, tb.width >= 44 && tb.height >= 44, `${tb.width}×${tb.height}`);
+      check(name, `히어로 ${vp.label}: SAMPLE VIDEO 표시`, await page.isVisible('.hero__sample'));
+      check(name, `히어로 ${vp.label}: 제목 글꼴 Zalando Sans Expanded`, await page.evaluate(() => document.fonts.check('800 40px "Zalando Sans Expanded"') && getComputedStyle(document.querySelector('#hero-title')).fontFamily.replace(/["']/g, '').startsWith('Zalando Sans Expanded')));
+      check(name, `히어로 ${vp.label}: 본문 글꼴 Google Sans 로드`, await page.evaluate(async () => { await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]); return document.fonts.check('400 16px "Google Sans"') && [...document.fonts].some((f) => f.family.includes('Google Sans') && f.status === 'loaded'); }));
+      check(name, `히어로 ${vp.label}: 히어로에만 흑백 필터`, await page.evaluate(() => getComputedStyle(document.querySelector('.hero__poster')).filter.includes('grayscale')));
+      await ctx.close();
+    }
+
+    // 2) 사용자 일시정지 → 새로고침해도 유지 → 다시 재생
+    if (!webkitNoMedia) {
+      const { ctx, page } = await newPage({ viewport: { width: 1280, height: 800 } });
+      await page.goto(u(), gotoOpts(name));
+      await page.waitForTimeout(1200);
+      await page.click('[data-hero-toggle]');
+      await page.waitForTimeout(300);
+      const p1 = await heroState(page);
+      check(name, '히어로: 정지 버튼 → 멈춤, 버튼 이름 "재생"', p1.paused && p1.state === 'paused' && p1.label === '배경 영상 재생', JSON.stringify(p1));
+      const reqs = [];
+      page.on('request', (r) => r.url().endsWith('.webm') && reqs.push(r.url()));
+      await page.reload(gotoOpts(name));
+      await page.waitForTimeout(1200);
+      const p2 = await heroState(page);
+      check(name, '히어로: 새로고침 후에도 정지 유지 (영상 요청 없음)', p2.paused && p2.state === 'paused' && reqs.length === 0 && p2.posterOk, `${JSON.stringify(p2)} reqs=${reqs.length}`);
+      await page.click('[data-hero-toggle]');
+      await page.waitForTimeout(1200);
+      const p3 = await heroState(page);
+      check(name, '히어로: 재생 버튼 → 다시 재생', p3.state === 'playing' && !p3.paused, JSON.stringify(p3));
+
+      // 3) 화면 밖이면 멈추고, 돌아오면 다시 재생
+      await page.evaluate(() => document.querySelector('#contact').scrollIntoView());
+      await page.waitForTimeout(600);
+      const off = await heroState(page);
+      check(name, '히어로: 화면 밖에서 멈춤', off.paused, JSON.stringify(off));
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.waitForTimeout(900);
+      const back = await heroState(page);
+      check(name, '히어로: 돌아오면 다시 재생', !back.paused && back.state === 'playing', JSON.stringify(back));
+      // 사용자가 멈춘 경우 돌아와도 멈춘 상태 유지
+      await page.click('[data-hero-toggle]');
+      await page.evaluate(() => document.querySelector('#contact').scrollIntoView());
+      await page.waitForTimeout(500);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.waitForTimeout(800);
+      const kept = await heroState(page);
+      check(name, '히어로: 사용자가 멈췄으면 돌아와도 정지 유지', kept.paused && kept.state === 'paused', JSON.stringify(kept));
+      await ctx.close();
+    }
+
+    // 4) 모션 줄이기: 영상 요청·자동 재생 없음, 포스터 표시, 직접 재생은 허용
+    {
+      const { ctx, page } = await newPage({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
+      const reqs = [];
+      page.on('request', (r) => r.url().endsWith('.webm') && reqs.push(r.url()));
+      await page.goto(u(), gotoOpts(name));
+      await page.waitForTimeout(1500);
+      const r = await heroState(page);
+      check(name, '히어로 모션 줄이기: 영상 요청 없음 + 포스터 표시', reqs.length === 0 && r.state === 'paused' && !r.visible && r.posterOk, `${JSON.stringify(r)} reqs=${reqs.length}`);
+      if (!webkitNoMedia) {
+        await page.click('[data-hero-toggle]');
+        await page.waitForTimeout(1200);
+        const r2 = await heroState(page);
+        check(name, '히어로 모션 줄이기: 사용자가 누르면 재생', r2.state === 'playing' && !r2.paused, JSON.stringify(r2));
+      }
+      await ctx.close();
+    }
+
+    // 5) 자동 재생 차단 환경: 포스터 유지, 오류 없이 직접 재생 가능
+    {
+      const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+      await ctx.addInitScript(() => {
+        const orig = HTMLMediaElement.prototype.play;
+        let first = true;
+        HTMLMediaElement.prototype.play = function () {
+          if (first) {
+            first = false;
+            return Promise.reject(new DOMException('autoplay blocked (test)', 'NotAllowedError'));
+          }
+          return orig.call(this);
+        };
+      });
+      const page = await ctx.newPage();
+      const errs = [];
+      page.on('pageerror', (e) => errs.push(e.message));
+      await page.goto(u(), gotoOpts(name));
+      await page.waitForTimeout(1200);
+      const s = await heroState(page);
+      check(name, '히어로 자동 재생 차단: 포스터 유지·버튼 "재생"·오류 없음', s.state === 'paused' && !s.visible && s.posterOk && !s.disabled && s.label === '배경 영상 재생' && errs.length === 0, `${JSON.stringify(s)} ${errs.join('|')}`);
+      await ctx.close();
+    }
+
+    // 6) 영상 파일 없음/로드 실패: 포스터 유지, 페이지 정상
+    {
+      const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+      // 영상 요청 자체를 가로채면 WebKit은 미디어 요청이 가로채기를 거치지 않아 재현이 안 된다.
+      // 그래서 메인 HTML의 영상 경로를 실제로 없는 파일로 바꿔, 서버가 진짜 404를 돌려주게 한다.
+      await ctx.route((url) => url.pathname === BASE, async (r) => {
+        const res = await r.fetch();
+        const body = (await res.text()).replaceAll('rpg-hud-interaction.webm', 'missing-video-for-test.webm');
+        await r.fulfill({ response: res, body });
+      });
+      const page = await ctx.newPage();
+      const errs = [];
+      page.on('pageerror', (e) => errs.push(e.message));
+      await page.goto(u(), gotoOpts(name));
+      await page.waitForTimeout(2000);
+      const s = await heroState(page);
+      check(name, '히어로 영상 로드 실패: 포스터 유지 + 버튼 비활성 안내', s.video === 'failed' && !s.visible && s.posterOk && s.disabled, JSON.stringify(s));
+      await page.click('.hero__cta');
+      await page.waitForTimeout(400);
+      check(name, '히어로 영상 로드 실패: 작업물 보기 이동 정상', page.url().endsWith('#works') && errs.length === 0, page.url());
+      await ctx.close();
+    }
+
+    // 7) 제목·소개·버튼·하단 줄이 겹치거나 잘리지 않음 (여러 너비, 가로 화면, 글자 200%)
+    // 히어로 요소(제목·소개·CTA·Scroll·SAMPLE·정지 버튼·헤더)가 서로 겹치지 않고 화면 폭·히어로 안에 있는지
+    const overlap = (page) =>
+      page.evaluate(() => {
+        const vw = document.documentElement.clientWidth;
+        const sel = { header: '[data-site-header]', title: '#hero-title', desc: '.hero__desc', cta: '.hero__cta', scroll: '.hero__scroll', sample: '.hero__sample', toggle: '[data-hero-toggle]' };
+        const rects = {};
+        for (const [k, q] of Object.entries(sel)) {
+          const el = document.querySelector(q);
+          if (!el || getComputedStyle(el).display === 'none') continue;
+          const r = el.getBoundingClientRect();
+          if (r.width && r.height) rects[k] = r;
+        }
+        const hero = document.querySelector('[data-hero]').getBoundingClientRect();
+        const issues = [];
+        const keys = Object.keys(rects);
+        for (let i = 0; i < keys.length; i++)
+          for (let j = i + 1; j < keys.length; j++) {
+            const a = rects[keys[i]], b = rects[keys[j]];
+            if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) issues.push(`${keys[i]}↔${keys[j]}`);
+          }
+        for (const k of keys) {
+          if (rects[k].right > vw + 1 || rects[k].left < -1) issues.push(`${k} 가로 넘침`);
+          if (k !== 'header' && (rects[k].bottom > hero.bottom + 1)) issues.push(`${k} 히어로 밖`);
+        }
+        return issues;
+      });
+    // R1) 글자 200%(html font-size) 설정 시 대형 제목이 실제로 커지는지 + 넘침 없이 소개·CTA·정지 버튼에 접근 가능한지
+    //     html 크기 변경은 브라우저 글자 크기 설정의 재현이며 실제 브라우저 확대 기능의 완전한 대체는 아니다.
+    for (const [w, h] of [[320, 568], [390, 844], [768, 1024], [1440, 900], [1920, 1080], [844, 390], [667, 375]]) {
+      const { ctx, page } = await newPage({ viewport: { width: w, height: h } });
+      await page.goto(u(), gotoOpts(name));
+      await page.evaluate(() => Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]));
+      const size = () => page.$eval('#hero-title', (t) => parseFloat(getComputedStyle(t).fontSize));
+      const lines = () => page.$eval('#hero-title', (t) => Math.round(t.getBoundingClientRect().height / (parseFloat(getComputedStyle(t).fontSize) * 0.95)));
+      const base = await size();
+      const baseLines = await lines();
+      await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
+      await page.waitForTimeout(150);
+      const zoomed = await size();
+      const ratio = zoomed / base;
+      const reach = await page.evaluate(() => {
+        const vw = document.documentElement.clientWidth;
+        const ids = ['#hero-title', '.hero__desc', '.hero__cta', '[data-hero-toggle]'];
+        return ids.filter((q) => { const r = document.querySelector(q).getBoundingClientRect(); return r.right > vw + 1 || r.width === 0; });
+      });
+      const ov = await overlap(page);
+      check(name, `R1 글자 200% ${w}×${h}: 제목 ${base.toFixed(1)}px → ${zoomed.toFixed(1)}px (×${ratio.toFixed(2)}), 기본 ${baseLines}행`, ratio >= 1.5 && baseLines === 3 && reach.length === 0 && ov.length === 0, `넘침: ${reach.join(",")} 겹침: ${ov.join(",")}`);
+      await ctx.close();
+    }
+
+    // R2) 낮은 가로 화면: 첫 화면(스크롤 없이)에서 정지 버튼 전체가 보이고 44px·다른 요소와 겹치지 않음
+    for (const [w, h] of [[844, 390], [667, 375]]) {
+      const { ctx, page } = await newPage({ viewport: { width: w, height: h }, hasTouch: name !== 'firefox' });
+      await page.goto(u(), gotoOpts(name));
+      await page.evaluate(() => Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]));
+      await page.waitForTimeout(150);
+      const r = await page.$eval('[data-hero-toggle]', (b) => { const x = b.getBoundingClientRect(); return { top: x.top, bottom: x.bottom, left: x.left, right: x.right, w: x.width, h: x.height, scrollY: window.scrollY }; });
+      const hdr = await page.$eval('[data-site-header]', (e) => e.getBoundingClientRect().bottom);
+      const ov = await overlap(page);
+      const visible = r.scrollY === 0 && r.top >= hdr - 1 && r.bottom <= h && r.left >= 0 && r.right <= w;
+      check(name, `R2 가로 ${w}×${h}: 첫 화면에 정지 버튼 전체 표시 (top ${r.top.toFixed(0)}·bottom ${r.bottom.toFixed(0)} / ${h})`, visible && r.w >= 44 && r.h >= 44 && ov.length === 0, `겹침: ${ov.join(",")}`);
+      await ctx.close();
+    }
+
+    for (const [w, h, zoom] of [[320, 568], [390, 844], [768, 1024], [1024, 768], [1440, 900], [1920, 1080], [844, 390], [667, 375], [320, 568, true], [1280, 800, true]]) {
+      const { ctx, page } = await newPage({ viewport: { width: w, height: h } });
+      await page.goto(u(), gotoOpts(name));
+      if (zoom) await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
+      // WebKit(Windows) 테스트 빌드는 영상 때문에 load가 끝나지 않아 fonts.ready가 영원히 대기 → 최대 1.5초만 기다림
+      await page.evaluate(() => Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]));
+      await page.waitForTimeout(150);
+      const issues = await overlap(page);
+      check(name, `히어로 배치 ${w}×${h}${zoom ? ' 글자200%' : ''}`, issues.length === 0, issues.join(', '));
+      await ctx.close();
+    }
+
+    // 8) 모바일: 영상 위 메뉴 열기 → 불투명 헤더·링크 접근, Works 이동
+    {
+      const { ctx, page } = await newPage({ viewport: { width: 390, height: 844 }, hasTouch: name !== 'firefox' });
+      await page.goto(u(), gotoOpts(name));
+      check(name, '히어로 모바일: 처음엔 투명 헤더', !(await page.$eval('[data-site-header]', (h) => h.classList.contains('is-solid'))));
+      await page.click('[data-menu-toggle]');
+      const solid = await page.$eval('[data-site-header]', (h) => h.classList.contains('is-solid'));
+      const navBg = await page.$eval('#site-nav', (n) => getComputedStyle(n).backgroundColor);
+      check(name, '히어로 모바일: 메뉴 열면 불투명 헤더·메뉴 배경', solid && navBg === 'rgb(20, 20, 20)', navBg);
+      await page.click('#site-nav a[href$="#works"]');
+      await page.waitForTimeout(700);
+      const worksTop = await page.$eval('#works-title', (h) => Math.round(h.getBoundingClientRect().top));
+      check(name, '히어로 모바일: 메뉴 → Works 이동, 제목이 헤더 아래', page.url().endsWith('#works') && worksTop >= 60, `top ${worksTop}`);
+      check(name, '히어로 모바일: 스크롤 후 불투명 헤더', await page.$eval('[data-site-header]', (h) => h.classList.contains('is-solid')));
+      await ctx.close();
+    }
+
+    // 8-1) 글꼴 로드 실패: 시스템 글꼴로 대체되어도 넘침·겹침 없이 읽을 수 있음
+    for (const [w, h] of [[390, 844], [1440, 900]]) {
+      const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+      await ctx.route(/\.(woff2|ttf)$/, (r) => r.abort());
+      const page = await ctx.newPage();
+      await page.goto(u(), gotoOpts(name));
+      await page.waitForTimeout(500);
+      const loaded = await page.evaluate(() => [...document.fonts].filter((f) => f.status === 'loaded').length);
+      const issues = [...(await layoutIssues(page)), ...(await overlap(page))];
+      check(name, `글꼴 로드 실패(${w}px): 시스템 글꼴로 대체, 넘침·겹침 없음`, loaded === 0 && issues.length === 0, `loaded=${loaded} ${issues.join(' | ')}`);
+      await ctx.close();
+    }
+
+    // 9) 상세 페이지 작업물은 원본 색 유지 (흑백 필터 없음)
+    {
+      const { ctx, page } = await newPage({ viewport: { width: 1280, height: 800 } });
+      await page.goto(u('projects/rpg-hud-character-ui/'), gotoOpts(name));
+      const filters = await page.$$eval('main img, main video', (els) => els.map((e) => getComputedStyle(e).filter).filter((f) => f !== 'none'));
+      check(name, '상세 작업물 이미지·영상: 필터 없음(원본 색)', filters.length === 0, filters.join(','));
+      await ctx.close();
+    }
   }
 
   // ---------- 200% 확대 (1280px 창 = CSS 640px) ----------

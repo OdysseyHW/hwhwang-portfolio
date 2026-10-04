@@ -1,26 +1,39 @@
 /*
  * 디자인 토큰 — 색상·글꼴·여백·크기는 여기서만 바꾼다.
- * 강조색은 --color-accent 한 가지만 사용한다.
+ * 블랙·화이트 컨셉(REQ-002): 별도 강조색 없이 흰색과 무채색 단계로만 위계를 만든다.
+ * 프로젝트 이미지·영상의 고유 색은 이 토큰과 무관하게 그대로 보인다.
  */
 :root {
   color-scheme: dark;
 
   /* 색상 */
-  --color-bg: #0f1012;
-  --color-surface: #17181b;
-  --color-surface-raised: #1f2125;
-  --color-border: #2e3136;
-  --color-border-strong: #464a51;
-  --color-text: #eceef1;
-  --color-text-muted: #a9adb5;
-  --color-accent: #f2b84b;
-  --color-accent-ink: #15130f; /* 강조색 배경 위 글자색 */
-  --color-overlay: rgb(8 9 10 / 0.96);
-  --color-focus: var(--color-accent);
+  --color-bg: #0a0a0a;
+  --color-surface: #141414;
+  --color-surface-raised: #1c1c1c;
+  --color-border: #333333;
+  --color-border-strong: #666666;
+  --color-text: #f5f5f5;
+  --color-text-muted: #b3b3b3;
+  --color-inverse-bg: #f5f5f5; /* 주요 버튼: 흰 바탕 */
+  --color-inverse-text: #0a0a0a; /* 주요 버튼: 검정 글자 */
+  --color-inverse-hover: #d6d6d6;
+  --color-header-bg: #0a0a0a; /* 스크롤 후·상세 페이지 헤더: 불투명 검정 */
+  --color-overlay: rgb(5 5 5 / 0.97);
+  --color-focus: #f5f5f5;
+  --color-focus-gap: #0a0a0a; /* 흰 요소와 포커스 외곽선 사이의 어두운 간격 */
 
-  /* 글꼴 — 한글 가독성이 좋은 시스템 폰트 우선, 외부 폰트 없음 */
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Segoe UI', Roboto, sans-serif;
+  /*
+   * 글꼴
+   * - Google Sans: 메뉴·본문·일반 제목 (라틴 문자만 포함 → 한글은 뒤의 시스템 글꼴로 표시)
+   * - Zalando Sans Expanded: 메인 히어로 대형 제목 전용
+   */
+  --font-sans: 'Google Sans', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Zalando Sans Expanded', 'Google Sans', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  --weight-body: 400;
+  --weight-ui: 500; /* 메뉴·버튼·라벨 */
+  --weight-heading: 700; /* Google Sans 제공 굵기: 400·500·700 */
+  --weight-display: 800; /* 히어로 제목 (Zalando Sans Expanded 200–900 중) */
 
   /* 글자 크기 (유동) */
   --text-sm: 0.875rem;

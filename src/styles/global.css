@@ -1,4 +1,5 @@
 @import './tokens.css';
+@import './fonts.css';
 
 *,
 *::before,
@@ -27,6 +28,7 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans);
+  font-weight: var(--weight-body);
   font-size: var(--text-base);
   line-height: var(--leading-body);
   overflow-wrap: break-word;
@@ -43,7 +45,7 @@ h3,
 h4 {
   margin: 0;
   line-height: var(--leading-tight);
-  font-weight: 700;
+  font-weight: var(--weight-heading);
   letter-spacing: -0.01em;
   text-wrap: balance;
   overflow-wrap: anywhere; /* 긴 영문 단어가 레이아웃을 밀어내지 않도록 */
@@ -66,9 +68,14 @@ a {
 }
 
 a:not([class]) {
-  color: var(--color-accent);
+  color: var(--color-text);
+  text-decoration-thickness: 1px;
   text-underline-offset: 0.2em;
   overflow-wrap: anywhere; /* 긴 URL 대응 */
+}
+
+a:not([class]):hover {
+  text-decoration-thickness: 2px;
 }
 
 button {
@@ -79,12 +86,13 @@ button {
 :focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 3px;
+  box-shadow: 0 0 0 3px var(--color-focus-gap);
   border-radius: var(--radius-sm);
 }
 
 ::selection {
-  background: var(--color-accent);
-  color: var(--color-accent-ink);
+  background: var(--color-inverse-bg);
+  color: var(--color-inverse-text);
 }
 
 /* ---------- 공통 유틸리티 ---------- */
@@ -128,18 +136,20 @@ button {
 .skip-link {
   position: absolute;
   left: var(--space-4);
-  top: -100px;
+  top: var(--space-3);
   z-index: 100;
+  /* 링크 높이와 무관하게 화면 위로 완전히 숨김 (글자 확대 시 고정 px로 숨기면 끝이 보임) */
+  transform: translateY(calc(-100% - var(--space-4) - 1rem));
   padding: var(--space-3) var(--space-4);
-  background: var(--color-accent);
-  color: var(--color-accent-ink);
-  font-weight: 700;
+  background: var(--color-inverse-bg);
+  color: var(--color-inverse-text);
+  font-weight: var(--weight-heading);
   border-radius: var(--radius-sm);
   text-decoration: none;
 }
 
 .skip-link:focus {
-  top: var(--space-3);
+  transform: none;
 }
 
 .section {
@@ -157,10 +167,10 @@ button {
 .eyebrow {
   display: block;
   margin-bottom: var(--space-2);
-  color: var(--color-accent);
+  color: var(--color-text-muted);
   font-size: var(--text-sm);
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-weight: var(--weight-ui);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -183,26 +193,26 @@ button {
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text);
-  font-weight: 600;
+  font-weight: var(--weight-ui);
   text-decoration: none;
   cursor: pointer;
   transition: background-color var(--duration) var(--ease), border-color var(--duration) var(--ease);
 }
 
 .button:hover {
-  border-color: var(--color-text-muted);
+  border-color: var(--color-text);
   background: var(--color-surface-raised);
 }
 
 .button--primary {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-accent-ink);
+  background: var(--color-inverse-bg);
+  border-color: var(--color-inverse-bg);
+  color: var(--color-inverse-text);
 }
 
 .button--primary:hover {
-  background: var(--color-text);
-  border-color: var(--color-text);
+  background: var(--color-inverse-hover);
+  border-color: var(--color-inverse-hover);
 }
 
 .tag-list {
@@ -230,11 +240,12 @@ button {
   display: inline-flex;
   align-items: center;
   padding: 0.125rem var(--space-3);
-  border: var(--border-width) dashed var(--color-accent);
+  border: var(--border-width) dashed var(--color-border-strong);
   border-radius: var(--radius-sm);
-  color: var(--color-accent);
+  color: var(--color-text);
   font-size: var(--text-sm);
-  font-weight: 700;
+  font-weight: var(--weight-ui);
+  letter-spacing: 0.02em;
   line-height: 1.6;
   white-space: nowrap;
 }

@@ -1,12 +1,15 @@
 # 구현 진행 기록
 ## 현재 상태
-- 요청: REQ-001
-- 상태: 구현 완료 · 검토 대기 (PR #1)
-- 기획: docs/PLAN.md
+- 요청: REQ-001, REQ-002, REQ-003(+확정 보완)
+- 상태
+  - REQ-001: 구현 완료 · 검토 대기 (PR #1)
+  - REQ-002·REQ-003: 구현 완료 · 검토 대기 (PR #2, REQ-001 브랜치 위에 쌓은 PR) → [REQ-002·003 기록](#req-002--req-003-기록)
+  - PR #2 검토(docs/REVIEW-PR-002.md) R1·R2: 수정 완료 · 재검토 대기 → [검토 대응](#pr-2-검토-대응-docsreview-pr-002md)
+- 기획: docs/PLAN.md, docs/REQUESTS.md
 - 구현/빌드/브라우저 검증: 완료 (로컬, 브라우저 에뮬레이션)
-- 실제 작업물, 소개, 연락처, 최종 테마: 미확정 (모두 샘플로 표시)
+- 실제 작업물, 소개, 연락처, 최종 히어로 영상·헤드라인: 미확정 (모두 샘플로 표시)
 
-## Claude Code 기록 양식
+## Claude Code 기록 양식 (REQ-001)
 작업 후 실제 결과로 갱신한다. 비밀키나 비공개 개인정보를 기록하지 않는다.
 - 작업 날짜: 2026-10-04
 - 요청 ID: REQ-001
@@ -136,3 +139,249 @@ SITE_URL=https://<계정>.github.io BASE_PATH=hwhwang-portfolio npm run build
 2. 실제 자료로 교체: `src/data/site.ts`, `src/content/projects/`, `public/og-default.png` (README의 "공개 전 교체 목록" 참고).
 3. 실제 모바일 기기(iOS Safari, Android Chrome)에서 메뉴·확대 뷰어·핀치 확인.
 4. 배포 주소 확정 후 별도 요청으로 GitHub Pages 배포(수동 워크플로 실행), 배포 후 Lighthouse 측정.
+
+---
+
+# REQ-002 · REQ-003 기록
+
+## 요약 (REQ-002·003)
+- 작업 날짜: 2026-10-04
+- 요청 ID: REQ-002(블랙·화이트 + Google Sans), REQ-003(영상 배경 대형 타이포 히어로), REQ-003 확정 보완(기존 샘플 영상 우선 적용, 히어로 제목 Zalando Sans Expanded)
+- 기준: docs/REQUESTS.md의 REQ-002, REQ-003, 확정 보완 (확정 보완이 우선)
+- 브랜치 / 커밋 / PR: 아래 [브랜치 · 커밋 · PR (REQ-002·003)](#브랜치--커밋--pr-req-002003)
+- 실제 영상 여부: **최종 영상 없음.** 새 영상은 제작·구매·생성하지 않았고, 저장소에 있던 자체 제작 샘플 `public/videos/rpg-hud-interaction.webm`(253KiB, 6초, 무음)을 히어로 배경에 실제 연결했다. 화면에 `SAMPLE VIDEO`로 표시.
+
+## 브랜치 · 커밋 · PR (REQ-002·003)
+- 브랜치: `feature/req-002-003-bw-hero` (REQ-001 브랜치 `feature/req-001-portfolio-base` 8d1d372 위에서 시작)
+- 커밋
+  - `40266d5` docs: REQ-002·REQ-003 요청과 확정 보완 추가 (PLAN, REQUESTS 원본 그대로)
+  - `10ac101` feat: 블랙·화이트 테마, Google Sans, 영상 배경 히어로
+  - `ff71fd9` docs: REQ-002·003 결과 기록
+  - 이 STATUS.md 커밋·PR 정보 갱신 커밋
+- PR: https://github.com/OdysseyHW/hwhwang-portfolio/pull/2 (base: `feature/req-001-portfolio-base` — PR #1 위에 쌓은 PR. PR #1 병합 후 base를 `main`으로 변경)
+- main 직접 병합·강제 푸시·외부 배포: 하지 않음
+
+## 구현 기능 (REQ-002·003)
+### REQ-002 블랙·화이트 + Google Sans
+- **색상 토큰:** 요청 권장값 그대로 — 배경 #0A0A0A, 표면 #141414, 올라온 표면 #1C1C1C, 본문 #F5F5F5, 보조 #B3B3B3, 테두리 #333333, 강한 테두리 #666666. 앰버 강조색과 관련 토큰을 모두 제거.
+- **버튼·상태:** 주요 버튼은 흰 바탕 + 검정 글자, 보조 버튼은 무채색 테두리. 호버는 밑줄(메뉴·카드 제목·링크)과 테두리 밝기, 포커스는 흰 외곽선 + 안쪽 어두운 간격(`box-shadow`)이라 흰 버튼·영상 위에서도 구별된다.
+- **사이트 그래픽 정리:** 헤더(스크롤 후 불투명 #0A0A0A), 카드, 태그, 샘플 배지(무채색 점선), 링크, 확대 뷰어, 푸터, `theme-color`, 파비콘·터치 아이콘, 공유 이미지(og-default.png)를 블랙·화이트로 다시 만듦.
+- **작업물 색 보존:** 프로젝트 이미지·영상에는 필터를 적용하지 않음 (자동 점검으로 확인).
+- **Google Sans:** 공식 저장소 Release v14.000의 static `GoogleSans-Regular/Medium/Bold.ttf`를 라틴 문자 범위로 subset 후 WOFF2로 자체 호스팅(각 약 28~30KB). `font-display: swap`. 본문 400, 메뉴·버튼 500, 제목 700 (Google Sans 실제 제공 굵기: 400·500·700, 600 없음). Google Sans Code·Product Sans로 대체하지 않음.
+- **한글:** fontTools로 확인한 결과 Google Sans v14.000에는 한글 글리프가 **0개**. 한글은 Apple SD Gothic Neo → Malgun Gothic → Noto Sans KR → system-ui 순으로 대체되고 영문·숫자만 Google Sans로 표시된다.
+- **출처·라이선스 보존:** `public/fonts/FONTS.md`(출처, 버전, 수정 내용, 문자 범위), `public/fonts/google-sans/OFL.txt`·`TRADEMARKS.txt`(공식 원문). 글꼴 내부 저작권·라이선스 정보(name 테이블)는 subset 후에도 유지.
+
+### REQ-003 영상 배경 히어로 (+ 확정 보완)
+- **구성:** 기존 짧은 소개 영역을 첫 화면 히어로로 교체 — 투명 헤더(왼쪽 이름, 오른쪽 Works/About/Contact) → 왼쪽 정렬 3행 대형 제목 → 소개 → 작업물 보기 → 하단 Scroll 안내·`SAMPLE VIDEO`·재생/일시정지. 프로젝트 목록은 히어로 바로 다음.
+- **데이터 분리:** `src/data/hero.ts` — `titleLines`, `description`, `videoDesktop`, `videoMobile`, `posterDesktop`, `posterMobile`, `focalPoint`(+모바일), `ctaLabel`/`ctaTarget`, `monochrome`, `sampleLabel`. 임시 헤드라인 `GAME UI / DESIGNED / FOR PLAY`, 소개 `플레이의 흐름을 만드는 게임 UI 디자이너.`
+- **샘플 영상 연결(확정 보완):** desktop·mobile 모두 `public/videos/rpg-hud-interaction.webm`, BASE_PATH 반영 URL. 영상 파일은 수정하지 않음. 포스터는 기존 RPG 프로젝트 이미지 `hud-final.svg` 재사용.
+- **흑백 처리:** 히어로의 영상·포스터에만 `filter: grayscale(1)` + 검정 오버레이. 오버레이는 완전히 흰 프레임을 가정해도 글자 영역이 검정 60% 이상이 되도록 설정(흰 글자 대비 약 5.7:1 이상, 아래 [가정](#가정한-사항-req-002003) 참고).
+- **제목 글꼴(확정 보완):** 히어로 대형 제목에만 Zalando Sans Expanded 800. 메뉴·본문·일반 제목은 Google Sans. 가장 긴 행(DESIGNED)이 약 6.5em인 것을 실측해 `min(clamp(…), 14.5cqi)`로 상한 → 320px·글자 200%에서도 화면을 넘지 않음. 데스크톱 `clamp(4rem, 8.5vw, 10rem)`, 모바일 `clamp(2.5rem, 11vw, 4.5rem)`, 낮은 가로 화면은 `15svh`로 추가 제한.
+- **Zalando Sans Expanded 라이선스:** OFL이지만 **Reserved Font Name "Zalando"**가 있어 subset 등 수정본은 같은 이름을 쓸 수 없다. 그래서 Google Fonts 공식 파일(`ZalandoSansExpanded[wght].ttf`, 버전 1.800, google/fonts 커밋 8b882cc9ed)을 **수정 없이** 사용(146KB, 메인에서만 로드·preload). 파일 이름만 URL 문제로 변경. `public/fonts/zalando-sans-expanded/OFL.txt` 보존.
+- **영상 동작:** `muted`·`loop`·`playsinline`. 포스터와 텍스트를 먼저 표시하고, JS가 화면 너비(약 640px 기준)에 맞는 **파일 하나만** 불러와 자동 재생을 시도한다. 재생이 시작되면 영상이 포스터 위로 나타남.
+  - 자동 재생 차단·재생 불가·파일 없음 → 포스터 유지, 페이지 동작은 그대로. 파일을 못 불러오면 버튼을 비활성화하고 상태를 화면 낭독기에 알림.
+  - 재생/일시정지 버튼(44×44px, 접근 가능한 이름 전환)을 항상 제공. 사용자가 멈춘 상태는 localStorage에 저장되어 새로고침·재방문·화면 재진입에도 유지되며, 이때는 영상 파일을 요청하지 않음.
+  - `prefers-reduced-motion: reduce` 또는 데이터 절약(`navigator.connection.saveData`)이면 영상을 요청하지 않고 포스터 표시. 사용자가 재생 버튼을 누르면 재생.
+  - 히어로가 화면 밖(IntersectionObserver)이거나 탭이 숨겨지면 멈추고, 돌아오면 사용자가 멈추지 않은 경우에만 다시 재생.
+  - 영상은 `aria-hidden`의 장식 요소, 제목·소개는 실제 HTML 텍스트(h1).
+- **헤더:** 메인에서는 투명한 검정 그라디언트 + 흰 메뉴로 시작하고, 16px 이상 스크롤하거나 모바일 메뉴를 열면 불투명 검정. 상세 페이지는 항상 불투명. (그라디언트가 테두리 영역에서 반복되어 생기던 1px 선도 수정)
+- **반응형:** 히어로는 `min-height: 100svh`(콘텐츠가 길면 늘어남, 고정 높이·overflow 자르기 없음). 좁은/낮은 화면은 여백 축소, 하단 버튼 줄은 줄바꿈 허용.
+
+## 주요 변경 파일 (REQ-002·003)
+| 파일 | 내용 |
+| --- | --- |
+| `src/styles/tokens.css` | 블랙·화이트 색상, 글꼴 스택, 굵기 토큰 |
+| `src/styles/fonts.css` (신규) | Google Sans 400/500/700, Zalando Sans Expanded `@font-face` |
+| `src/assets/fonts/` (신규) | 글꼴 파일 4개 (Vite가 BASE_PATH 반영한 경로로 출력) |
+| `public/fonts/FONTS.md`, `google-sans/OFL.txt`, `google-sans/TRADEMARKS.txt`, `zalando-sans-expanded/OFL.txt` (신규) | 출처·라이선스·수정 내용 |
+| `src/styles/global.css` | 링크·포커스·버튼·배지·eyebrow 무채색화, 굵기 토큰 적용 |
+| `src/components/Hero.astro` (신규) | 영상 배경 히어로와 영상 제어 스크립트 |
+| `src/data/hero.ts` (신규) | 히어로 문구·영상·포스터 설정 |
+| `src/components/Header.astro` | 투명/불투명 오버레이 헤더, 메뉴 굵기·밑줄 |
+| `src/layouts/BaseLayout.astro` | `overlayHeader` 옵션, head 슬롯(글꼴 preload), theme-color |
+| `src/pages/index.astro` | 기존 소개 영역 → Hero, 카드 지연 로딩, 글꼴 preload |
+| `src/data/site.ts` | 쓰지 않게 된 `intro` 제거 (히어로 소개로 대체) |
+| `src/components/ProjectCard.astro`, `ZoomFigure.astro`, `VideoBlock.astro`, `Lightbox.astro`, `src/pages/projects/[slug].astro` | 강조색 제거, 굵기 토큰 |
+| `public/favicon.svg`, `apple-touch-icon.png`, `og-default.png` | 블랙·화이트로 다시 제작 |
+| `scripts/verify.mjs` | 히어로·글꼴 점검 항목 추가 |
+| `scripts/screenshots.mjs` (신규), `docs/screenshots/*.jpg` | 검토용 캡처 스크립트와 결과 |
+| `README.md` | 히어로·영상 교체 방법, 영상·포스터 규격, 색상·글꼴 안내, 공개 전 교체 목록 갱신 |
+
+## 실행 · 빌드 (REQ-002·003)
+```bash
+npm install
+npm run dev               # http://localhost:4321
+npm run build && npm run preview
+npm run check             # 타입·스키마 검사
+npm run verify            # 3개 브라우저 자동 점검 (최초 1회: npx playwright install chromium firefox webkit)
+npm run screenshots       # docs/screenshots/ 캡처 갱신
+```
+
+## 스크린샷 (REQ-002·003)
+`docs/screenshots/` — 모두 Chromium에서 히어로 영상 재생 후 캡처 (실제 기기 아님).
+
+| 파일 | 화면 |
+| --- | --- |
+| `home-desktop-1440.jpg` | 데스크톱 히어로 |
+| `home-works-desktop-1440.jpg` | 데스크톱 프로젝트 목록 (스크롤 후 불투명 헤더) |
+| `home-mobile-390.jpg` | 모바일 히어로 |
+| `home-mobile-menu-390.jpg` | 모바일 메뉴 열림 (영상 위) |
+| `home-mobile-landscape-844.jpg` | 모바일 가로 화면 히어로 |
+| `home-works-mobile-390.jpg` | 모바일 프로젝트 목록 |
+| `detail-desktop-1440.jpg`, `detail-mobile-390.jpg` | 상세 페이지 (작업물 원본 색 유지) |
+
+## 검증 결과 (REQ-002·003)
+환경: Windows 10, Node 24.19, Playwright 1.63(Chromium·Firefox·WebKit 내장 빌드). 모두 실제로 실행한 결과이며, 실제 모바일 기기가 아닌 화면 크기·터치 에뮬레이션이다.
+
+| 항목 | 결과 |
+| --- | --- |
+| `npm run check` | 오류 0, 경고 0 |
+| `npm run build` | 성공 (5페이지) |
+| `npm run verify` Chromium | **260/260 통과** |
+| `npm run verify` Firefox | **260/260 통과** |
+| `npm run verify` WebKit | **253/253 통과** (영상 재생 확인 7개 항목은 아래 사유로 건너뛰고, 대신 "재생 불가 → 포스터 유지"를 확인) |
+| 하위 경로 빌드 `BASE_PATH=hwhwang-portfolio` + Chromium | **260/260 통과**. 글꼴 preload·@font-face·히어로 영상 URL이 모두 `/hwhwang-portfolio/`로 시작 |
+| 대비 (계산) | 본문 18.2:1, 보조 글자 8.1:1 이상, 주요 버튼(검정/흰) 18.2:1, 강한 테두리 3.45:1. 히어로는 흰 프레임을 가정해도 글자 영역 약 5.7:1 이상 |
+
+**새로 추가한 점검 항목 (REQ-002·003)**
+- 히어로 배경 영상 실제 재생: 1초 동안 재생 위치가 늘어나는지, `muted`·`loop`·`playsinline`, 데스크톱 1440·모바일 390에서 영상 파일 **1개만** 요청 — Chromium·Firefox 통과
+- 재생/일시정지 버튼 44px, `SAMPLE VIDEO` 표시, 제목이 HTML 텍스트, 히어로에만 흑백 필터
+- 정지 → 새로고침 후에도 정지 유지(영상 요청 0건) → 재생 버튼으로 다시 재생
+- 화면 밖으로 스크롤하면 정지, 돌아오면 다시 재생. 사용자가 멈춘 경우 돌아와도 정지 유지
+- 모션 줄이기(`reducedMotion: reduce`): 영상 요청 0건 + 포스터 표시, 버튼을 누르면 재생
+- 자동 재생 차단(첫 `play()` 거부): 포스터 유지, 버튼 "재생", 페이지 오류 없음
+- 영상 파일 없음(존재하지 않는 경로): 포스터 유지, 버튼 비활성·안내, 작업물 보기 이동 정상
+- 제목·소개·버튼·하단 줄 겹침 없음: 320×568, 390×844, 768×1024, 1024×768, 1440×900, 1920×1080, 모바일 가로 844×390·667×375, 글자 200%(320·1280)
+- 모바일: 처음엔 투명 헤더, 메뉴를 열면 불투명 헤더와 메뉴 배경(#141414), 메뉴 → Works 이동 시 제목이 헤더 아래, 스크롤 후 불투명 헤더
+- 글꼴: 제목 Zalando Sans Expanded 적용, 본문 Google Sans 로드. **글꼴 파일을 모두 막아도**(로드 실패) 390·1440px에서 넘침·겹침 없음
+- 상세 페이지 작업물 이미지·영상에 필터가 없음(원본 색 유지)
+- 기존 REQ-001 항목(14개 너비 레이아웃, 메뉴, 카드·상세, 확대 뷰어, 키보드·초점, 200% 확대, 링크·이미지·콘솔 오류 등)은 그대로 유지·통과
+
+**WebKit 참고 사항 (Playwright의 Windows용 WebKit 빌드 제약)**
+- 영상 요소 때문에 페이지 load 이벤트가 끝나지 않는다. 이 때문에 `document.fonts.ready`도 끝나지 않아 처음에는 점검이 멈췄고(3시간 대기 후 원인 확인), 점검 스크립트에서 이 대기를 최대 1.5초로 제한했다. 사이트 코드는 이 값을 기다리지 않는다.
+- 이 빌드에서는 영상 `playing` 이벤트가 발생하지 않아 사이트는 포스터를 유지한다. 그래서 WebKit에서는 "재생 불가 환경 → 포스터 유지"를 확인했고, 실제 재생·정지 유지·화면 밖 정지·모션 줄이기에서 직접 재생 항목은 건너뛰었다. **macOS·iOS Safari에서의 실제 영상 재생은 미검증.**
+- WebKit은 영상 요청이 Playwright 요청 가로채기를 거치지 않는다. 그래서 "영상 파일 없음" 점검은 HTML의 영상 경로를 없는 파일로 바꾸는 방식으로 세 브라우저 모두 같은 조건에서 확인했다.
+- 처음 실행에서 WebKit의 글꼴 판정이 실패한 것은 WebKit이 계산된 글꼴 이름을 따옴표 없이 돌려주기 때문이었다(실제 글꼴은 정상 로드·적용, 제목 폭 796px로 Chromium과 동일). 판정을 따옴표와 무관하게 고쳤다.
+
+## 미검증 항목 (REQ-002·003)
+| 항목 | 사유 |
+| --- | --- |
+| macOS·iOS Safari에서 히어로 영상 실제 재생·자동 재생 정책 | Windows용 WebKit 빌드 제약. 실제 기기 없음 |
+| 실제 모바일 기기(저전력 모드, 데이터 절약 모드 포함) | 기기 없음. 데이터 절약은 `navigator.connection.saveData`를 지원하는 브라우저(Chromium 계열)에서만 동작하며 자동화로 켜 보지는 않음 |
+| 탭 숨김(`visibilitychange`) 시 정지 | 코드에는 구현했으나 자동화로 탭 전환을 재현하지 않음 |
+| 실제 브라우저 200% 확대 | CSS 640px 화면과 글자 200%로 대체 확인 |
+| 화면 낭독기(NVDA, VoiceOver) | 미실행. 이름·상태 속성만 확인 |
+| Lighthouse 등 성능 점수 | 측정하지 않음. 참고: 메인 첫 화면에 글꼴 약 230KB(Google Sans 3개 약 87KB + Zalando 146KB), 샘플 영상 253KB |
+
+## 가정한 사항 (REQ-002·003)
+- 제목 굵기: Google Sans에 600이 없어 일반 제목은 700을 사용. 히어로 제목은 Zalando Sans Expanded 800.
+- Google Sans는 "Google Sans"(광학 크기 18) static 파일을 사용. "Google Sans Text"(작은 글자용 광학 크기)는 쓰지 않음.
+- 히어로 오버레이는 최종 영상의 밝기를 모르므로 완전히 흰 프레임을 가정해 정함. 실제 영상이 어둡다면 오버레이를 약하게 조정할 수 있음(`Hero.astro`의 `.hero__shade`).
+- 모바일/데스크톱 영상 전환 기준은 메뉴 전환점과 같은 약 640px. 첫 로드 이후 화면 크기가 바뀌어도 영상을 다시 받지 않음(두 파일 중복 다운로드 방지).
+- 사용자가 멈춘 상태는 localStorage(`hero-video-paused`)에 저장. 저장소를 못 쓰는 환경에서는 현재 페이지에서만 유지.
+- 메인 카드 이미지는 이제 첫 화면(히어로) 아래에 있으므로 지연 로딩으로 변경.
+- 헤더 배경은 요청대로 스크롤 후 **불투명** 검정(#0A0A0A). 반투명일 때 히어로 하단 글자가 비쳐 보여 불투명으로 확정.
+- 공유 이미지(og-default.png)에도 임시 헤드라인을 넣음 → 공개 전 교체 목록에 추가.
+
+## 남은 문제 · 기획 질문 (REQ-002·003)
+- **최종 히어로 영상:** 사용자 보유 UI 모션 쇼릴을 받으면 `src/data/hero.ts`의 경로만 바꾸면 됨. Safari·iOS 호환을 위해 MP4(H.264)를 먼저 넣는 것을 권장.
+- **샘플 영상 공유:** `rpg-hud-interaction.webm`을 히어로와 RPG 샘플 상세가 함께 쓴다. 한쪽만 교체할 때 지우지 않도록 README에 적어 둠.
+- **질문 1:** 최종 헤드라인을 영문 3행으로 유지할지, 한글 헤드라인을 쓸지. 한글은 Zalando Sans Expanded에 글리프가 없어 시스템 글꼴로 표시된다.
+- **질문 2:** 히어로 하단 `Scroll` 안내와 `SAMPLE VIDEO` 표시 위치가 의도와 맞는지 (스크린샷 `home-desktop-1440.jpg`).
+- **질문 3:** 최종 영상이 밝은 편이라면 흑백 필터를 유지할지, 원본 색을 살릴지(`hero.ts`의 `monochrome`).
+- 기획 변경 제안: 없음.
+
+## 다음 작업 (REQ-002·003)
+1. PR #1(REQ-001) 검토·병합 후, 이 PR의 base를 `main`으로 바꿔 검토·병합.
+2. 최종 히어로 영상·포스터·헤드라인 교체.
+3. 실제 iPhone(Safari)·Android(Chrome)에서 히어로 자동 재생, 정지 버튼, 메뉴 확인.
+4. 배포 주소 확정 후 별도 요청으로 배포 및 Lighthouse 측정.
+
+---
+
+# PR #2 검토 대응 (docs/REVIEW-PR-002.md)
+
+## 요약 (검토 대응)
+- 작업 날짜: 2026-10-04
+- 대상: `docs/REVIEW-PR-002.md`의 R1(글자 확대가 대형 제목에 반영되지 않음), R2(낮은 가로 화면에서 영상 제어가 첫 화면 아래로 밀림)
+- 검토 문서의 디자인 권고(질문 3개)는 사용자 확정 전이므로 새 사용자 결정으로 기록하지 않았고, 구현에도 반영하지 않았다.
+- 위 "REQ-002 · REQ-003 기록"의 제목 크기 설명(`14.5cqi` 상한, 낮은 화면 `15svh` 제한)은 이 대응으로 **대체**되었다.
+
+## R1 대응: 글자 확대가 대형 제목에 반영되게
+- **원인:** 제목 크기를 `vw`·`cqi`·`svh`로 상한을 두어, 사용자가 글자 크기를 키워도(rem 증가) 상한에 막혔다.
+- **수정 (`src/components/Hero.astro`):** 제목 크기를 rem 중심 + 작은 vw 보정으로 변경하고 `cqi`·`svh` 상한과 container query를 제거했다.
+
+  | 화면 | 규칙 | 기본 크기 |
+  | --- | --- | --- |
+  | ~639px | `calc(2.375rem + 1vw)` | 320px 41px · 390px 42px |
+  | 640~1199px | `min(calc(4rem + 3.5vw), 10rem)` | 768px 91px · 1024px 100px |
+  | 1200px~ | `min(calc(5.5rem + 2.25vw), 10rem)` | 1440px 120px · 1920px 131px |
+  | 낮은 가로 화면(높이 480px 이하, 폭 640px 이상) | `calc(2.75rem + 1.6vw)` | 667px 55px · 844px 58px (이전과 같은 수준, 더 줄이지 않음) |
+
+- **넘칠 때:** 글자를 줄이지 않고 줄바꿈하며 히어로 높이가 늘어난다(`overflow-wrap: anywhere`, `hyphens: auto`, 제목 `lang="en"`). 대문자 단어는 브라우저 자동 하이픈이 적용되지 않아, 데이터에 soft hyphen(`DE­SIGNED`)을 넣어 필요할 때만 `DE-` / `SIGNED`로 끊기게 했다. 기본 글자 크기에서는 320~1920px 모두 3행을 유지한다.
+- **함께 고친 문제:** 글자 200%에서 본문 바로가기 링크가 `top: -100px`보다 커져 화면 왼쪽 위에 끝이 보이던 문제 → 링크 높이와 무관하게 `transform`으로 숨기도록 변경(`src/styles/global.css`).
+
+## R2 대응: 낮은 가로 화면에서 영상 제어를 첫 화면에
+- **수정 (`src/components/Hero.astro`):** 높이 480px(30em) 이하 화면에서만 `SAMPLE VIDEO`·재생/정지 줄을 히어로 맨 위(헤더 바로 아래)로 옮겼다(`order: -1`). 문서 흐름 안이라 다른 요소를 가리지 않고, 사이트 전체에 고정하지 않았다. 같은 기능(작업물로 이동)의 `Scroll` 안내는 이 화면에서만 숨기고 `작업물 보기` 버튼이 대신한다. 제목은 줄이지 않았다.
+- **결과:** 844×390·667×375 첫 화면에서 정지 버튼 top 68px·bottom 112px (화면 높이 390/375), 44×44px, 다른 요소와 겹침 없음.
+
+## 검증 추가·변경 (검토 대응)
+- **R1 검사(새로 추가):** 320×568, 390×844, 768×1024, 1440×900, 1920×1080, 844×390, 667×375에서 html `font-size: 200%` 전후 제목의 계산된 크기를 비교한다. 기준은 **1.5배 이상 증가**, 기본 상태 3행, 제목·소개·CTA·정지 버튼의 가로 넘침 없음, 히어로 요소 간 겹침 없음. html 크기 변경은 브라우저 글자 크기 설정의 재현이며, 실제 브라우저 확대 기능의 완전한 대체는 아니다.
+- **R2 검사(새로 추가):** 844×390, 667×375 기본 화면에서 스크롤 없이 정지 버튼 전체가 헤더 아래·화면 안에 보이는지, 44px 이상인지, 다른 요소와 겹치지 않는지.
+- **히어로 겹침 검사 변경:** "하단 줄은 CTA 아래" 같은 순서 가정 대신, 보이는 요소(헤더·제목·소개·CTA·Scroll·SAMPLE·정지 버튼)끼리 서로 겹치는지와 가로 넘침·히어로 밖 이탈을 검사하도록 바꿨다.
+- 제목 텍스트 검사는 soft hyphen을 제외하고 비교한다.
+
+## 검증 결과 (검토 대응)
+환경: Windows 10, Node 24.19, Playwright 1.63. 실제 모바일 기기가 아닌 화면 크기·터치 에뮬레이션.
+
+| 항목 | 결과 |
+| --- | --- |
+| `npm run check` | 오류 0, 경고 0 |
+| `npm run build` | 성공 (5페이지) |
+| `npm run verify` Chromium | **269/269 통과** (R1 7개 + R2 2개 추가) |
+| `npm run verify` Firefox | **269/269 통과** |
+| `npm run verify` WebKit | **262/262 통과** (영상 재생 확인 7개는 Windows 테스트 빌드 제약으로 포스터 대체 확인) |
+
+**R1 — 글자 200% 전후 제목 크기 (세 브라우저 동일, Chromium 값)**
+
+| 화면 | 기본 | 글자 200% | 배율 | 기본 행 수 |
+| --- | --- | --- | --- | --- |
+| 320×568 | 41.2px | 79.2px | ×1.92 | 3 |
+| 390×844 | 41.9px | 79.9px | ×1.91 | 3 |
+| 768×1024 | 90.9px | 154.9px | ×1.70 | 3 |
+| 1440×900 | 120.4px | 208.4px | ×1.73 | 3 |
+| 1920×1080 | 131.2px | 219.2px | ×1.67 | 3 |
+| 844×390 | 57.5px | 101.5px | ×1.77 | 3 |
+| 667×375 | 54.7px | 98.7px | ×1.80 | 3 |
+
+검토 시 측정값(390px ×1.05, 1440px ×1.05, 844×390 변화 없음) 대비 모든 화면에서 1.67배 이상 커지며, 넘침·겹침 없이 소개·CTA·정지 버튼에 접근할 수 있다. 2배에 못 미치는 것은 넓은 화면일수록 vw 보정 비중이 커지기 때문이다(rem 부분은 정확히 2배).
+
+**R2 — 낮은 가로 화면 정지 버튼 (세 브라우저 동일)**
+
+| 화면 | 정지 버튼 위치 | 크기 | 겹침 |
+| --- | --- | --- | --- |
+| 844×390 | top 68px · bottom 112px (화면 390) | 44×44 | 없음 |
+| 667×375 | top 68px · bottom 112px (화면 375) | 44×44 | 없음 |
+
+검토 시 844×390에서 top 373.86 · bottom 417.86(화면 밖)이었던 것이 첫 화면 위쪽으로 옮겨졌다.
+
+**하위 경로 빌드:** 이번 변경은 히어로 CSS·데이터와 본문 바로가기 CSS뿐이고 경로 처리에는 변경이 없어 다시 실행하지 않았다(직전 PR #2 기록: Chromium 260/260).
+
+## 스크린샷 갱신 (검토 대응)
+`docs/screenshots/` 전체를 현재 빌드로 다시 캡처했고, 다음 3장을 추가했다.
+
+| 파일 | 화면 |
+| --- | --- |
+| `home-mobile-landscape-667.jpg` | R2: 667×375 가로 화면 — 정지 버튼이 헤더 아래 첫 화면에 표시 |
+| `home-mobile-landscape-844.jpg` (갱신) | R2: 844×390 가로 화면 |
+| `home-mobile-text200-390.jpg` | R1: 390px 글자 200% (전체 페이지) — 제목이 커지고 줄바꿈 |
+| `home-desktop-text200-1440.jpg` | R1: 1440px 글자 200% — `DE-` / `SIGNED` 줄바꿈 |
+
+글자 200% 캡처는 html `font-size` 변경으로 재현한 것이다.
+
+## 미검증 · 남은 사항 (검토 대응)
+- 실제 브라우저의 "글자 크기" 설정(크롬 설정의 글꼴 크기, iOS 동적 글자 크기)과 실제 확대 기능은 직접 조작해 보지 않았다(html 크기 변경으로 재현).
+- 대문자 단어 자동 하이픈은 브라우저가 적용하지 않아, 최종 헤드라인에 긴 단어가 있으면 `­`로 끊을 위치를 직접 넣어야 한다(README 안내). 넣지 않아도 넘치지는 않지만 마지막 글자 하나만 다음 줄로 갈 수 있다.
+- 낮은 가로 화면에서는 `Scroll` 안내를 숨긴다(같은 기능의 `작업물 보기` 버튼 유지).
+- 검토 문서의 미검증 항목(실제 모바일, Safari, 탭 숨김, 데이터 절약)은 그대로 남아 있다.
+- 기획 변경 제안: 없음.
