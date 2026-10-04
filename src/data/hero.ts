@@ -6,12 +6,21 @@ import samplePoster from '../content/projects/rpg-hud-character-ui/images/hud-fi
  * 메인 히어로 설정. 최종 영상·문구가 정해지면 이 파일만 바꾸면 된다.
  * 영상 경로는 public/ 기준 (예: 'videos/showreel.mp4'). 배포 하위 경로(BASE_PATH)는 자동 반영된다.
  */
+/** 제목 한 줄. 문자열이면 titleLang을 따르고, 줄마다 언어가 다르면 { text, lang }으로 쓴다. */
+export type TitleLine = string | { text: string; lang?: string };
+
 export interface HeroInfo {
   /**
-   * 대형 제목 — 배열 1칸이 1행. 한 행은 영문 기준 8~9자 이내를 권장.
-   * 글자를 크게 키웠을 때 긴 단어가 끊길 위치는 \u00AD(soft hyphen)로 지정한다. 화면에 들어가면 보이지 않는다.
+   * 대형 제목 — 배열 1칸이 1행. 영문은 한 행 8~9자 이내를 권장.
+   * soft hyphen(\u00AD)은 영문 긴 단어의 선택적 줄바꿈 힌트다. 문구를 바꾸면 새 단어에 맞게 다시 넣고,
+   * 지금 위치를 기계적으로 옮기지 않는다. 한글은 띄어쓰기 단위로 줄이 바뀐다.
    */
-  titleLines: string[];
+  titleLines: TitleLine[];
+  /**
+   * 제목 기본 언어 (BCP 47). 영문 'en', 한글 'ko'. 줄바꿈·하이픈·화면 낭독기 발음에 쓰인다.
+   * 한글은 제목 글꼴(Zalando Sans Expanded)에 없어 시스템 한글 글꼴로 표시된다.
+   */
+  titleLang: string;
   description: string;
   /** 데스크톱 배경 영상. 여러 형식은 목록으로 (앞에서부터 재생 시도: mp4 → webm 권장). 비우면 포스터만 표시 */
   videoDesktop?: string | string[];
@@ -32,7 +41,10 @@ export interface HeroInfo {
 }
 
 export const hero: HeroInfo = {
-  titleLines: ['GAME UI', 'DE\u00ADSIGNED', 'FOR PLAY'], // 임시 헤드라인 (최종 문구 미정). \u00AD = 필요할 때만 'DE-/SIGNED'로 끊음
+  titleLines: ['GAME UI', 'DE\u00ADSIG\u00ADNED', 'FOR PLAY'], // 임시 헤드라인 (최종 문구 미정). \u00AD = 필요할 때만 'DE-/SIG-/NED'로 끊음
+  titleLang: 'en',
+  // 예) 한글: titleLines: ['플레이를', '설계하는', '디자이너'], titleLang: 'ko'
+  // 예) 혼합: titleLines: ['GAME UI', { text: '디자이너', lang: 'ko' }], titleLang: 'en'
   description: '플레이의 흐름을 만드는 게임 UI 디자이너.',
   // 임시: 기존 RPG HUD 샘플 영상 (최종 흑백 UI 모션 쇼릴로 교체 예정)
   videoDesktop: 'videos/rpg-hud-interaction.webm',

@@ -556,6 +556,118 @@ for (const name of selected) {
       await ctx.close();
     }
 
+    // REQ-004-1) 기본·글자 200% 모두: 스크롤 없이 첫 화면에 정지 버튼 전체 표시, 헤더 아래, 44px, 겹침 없음
+    const VIEWS_004 = [[320, 568], [390, 844], [768, 1024], [1440, 900], [1920, 1080], [667, 375], [844, 390]];
+    const toggleInFirstScreen = async (page, h) => {
+      const r = await page.$eval('[data-hero-toggle]', (b) => { const x = b.getBoundingClientRect(); return { top: x.top, bottom: x.bottom, left: x.left, right: x.right, w: x.width, h: x.height, vw: document.documentElement.clientWidth, sy: window.scrollY }; });
+      const hdr = await page.$eval('[data-site-header]', (e) => e.getBoundingClientRect().bottom);
+      return { ...r, hdr, ok: r.sy === 0 && r.top >= hdr - 1 && r.bottom <= h && r.left >= 0 && r.right <= r.vw && r.w >= 44 && r.h >= 44 };
+    };
+    for (const [w, h] of VIEWS_004) {
+      for (const zoom of [false, true]) {
+        const { ctx, page } = await newPage({ viewport: { width: w, height: h } });
+        await page.goto(u(), gotoOpts(name));
+        if (zoom) await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
+        await page.evaluate(() => Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]));
+        await page.waitForTimeout(150);
+        const t = await toggleInFirstScreen(page, h);
+        const ov = await overlap(page);
+        check(name, `REQ-004 ${w}×${h}${zoom ? " 글자200%" : ""}: 첫 화면 정지 버튼 (top ${t.top.toFixed(0)}·bottom ${t.bottom.toFixed(0)} / ${h})`, t.ok && ov.length === 0, `헤더 ${t.hdr.toFixed(0)} 겹침: ${ov.join(",")}`);
+        await ctx.close();
+      }
+    }
+
+    // REQ-004-1) HTML 순서 = 시각 순서 = 키보드 순서 (헤더 메뉴 → 영상 제어 → 제목·CTA)
+    for (const [w, h] of [[1440, 900], [390, 844]]) {
+      const { ctx, page } = await newPage({ viewport: { width: w, height: h } });
+      await page.goto(u(), gotoOpts(name));
+      const order = await page.evaluate(() => {
+        const t = document.querySelector('[data-hero-toggle]');
+        const cta = document.querySelector('.hero__cta');
+        const title = document.querySelector('#hero-title');
+        const hdr = document.querySelector('[data-site-header]');
+        const follows = (a, b) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+        return {
+          dom: follows(hdr, t) && follows(t, title) && follows(t, cta),
+          visual: t.getBoundingClientRect().bottom <= title.getBoundingClientRect().top + 1,
+        };
+      });
+      let keyboard = 'WebKit 테스트 빌드는 Tab 이동 불가 → DOM 순서로 대체';
+      let keyOk = true;
+      if (name !== 'webkit') {
+        // 헤더의 마지막 초점 요소(데스크톱: Contact, 모바일: 메뉴 버튼)에서 Tab → 영상 제어 → 다음 Tab → CTA
+        const last = w >= 640 ? '#site-nav a[href$="#contact"]' : '[data-menu-toggle]';
+        await page.focus(last);
+        await page.keyboard.press('Tab');
+        const a = await page.evaluate(() => document.activeElement?.hasAttribute('data-hero-toggle'));
+        await page.keyboard.press('Tab');
+        const b = await page.evaluate(() => document.activeElement?.classList.contains('hero__cta'));
+        keyOk = a && b;
+        keyboard = `Tab: 헤더→영상 제어 ${a}, →CTA ${b}`;
+      }
+      check(name, `REQ-004 ${w}px: HTML·시각·키보드 순서 일치 (헤더→영상 제어→제목·CTA)`, order.dom && order.visual && keyOk, `dom ${order.dom} visual ${order.visual} ${keyboard}`);
+      await ctx.close();
+    }
+
+    // REQ-004-2) 헤드라인 교체 검증 — 임시 검증 데이터를 화면에서만 바꿔 넣는다 (실제 콘텐츠·데이터 파일은 변경하지 않음)
+    const FIXTURES = [
+      { id: '영문 짧음', lang: 'en', lines: ['UI', 'FOR PLAY'] },
+      { id: '영문 긴 단어', lang: 'en', lines: ['INTERACTIVE', 'EXPERIENCE', 'ARCHI\u00ADTECTURE'] },
+      { id: '한글', lang: 'ko', lines: ['플레이를', '설계하는', '게임 UI 디자이너'] },
+      { id: '혼합(줄별 lang)', lang: 'en', lines: ['GAME UI', { text: '인터페이스 디자이너', lang: 'ko' }] },
+    ];
+    for (const [w, h] of [[320, 568], [390, 844], [1440, 900]]) {
+      for (const zoom of [false, true]) {
+        const { ctx, page } = await newPage({ viewport: { width: w, height: h } });
+        await page.goto(u(), gotoOpts(name));
+        if (zoom) await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
+        await page.evaluate(() => Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]));
+        const baseSize = await page.$eval('#hero-title', (t) => getComputedStyle(t).fontSize);
+        for (const fx of FIXTURES) {
+          // 컴포넌트와 같은 마크업(스코프 속성 포함)으로 제목 줄을 바꿔 넣는다
+          await page.evaluate(({ lines, lang }) => {
+            const h1 = document.querySelector('#hero-title');
+            const tpl = h1.querySelector('.hero__line').cloneNode(false);
+            tpl.removeAttribute('lang');
+            h1.lang = lang;
+            h1.replaceChildren();
+            lines.forEach((l, i) => {
+              const o = typeof l === 'string' ? { text: l } : l;
+              const span = tpl.cloneNode(false);
+              span.textContent = o.text;
+              if (o.lang && o.lang !== lang) span.lang = o.lang;
+              h1.append(span);
+              if (i < lines.length - 1) h1.append(' ');
+            });
+          }, fx);
+          await page.waitForTimeout(80);
+          const r = await page.evaluate(() => {
+            const h1 = document.querySelector('#hero-title');
+            const vw = document.documentElement.clientWidth;
+            const spans = [...h1.querySelectorAll('.hero__line')];
+            return {
+              size: getComputedStyle(h1).fontSize,
+              overflow: spans.some((s) => s.getBoundingClientRect().right > vw + 1 || s.scrollWidth > s.clientWidth + 1),
+              koLineHeights: spans.filter((s) => s.matches(':lang(ko)')).map((s) => (parseFloat(getComputedStyle(s).lineHeight) / parseFloat(getComputedStyle(s).fontSize)).toFixed(2)),
+              langs: spans.map((s) => s.closest('[lang]').lang),
+            };
+          });
+          const t = await toggleInFirstScreen(page, h);
+          const ov = await overlap(page);
+          const wantLangs = fx.lines.map((l) => (typeof l === 'string' ? fx.lang : l.lang ?? fx.lang));
+          const langOk = JSON.stringify(r.langs) === JSON.stringify(wantLangs);
+          const koOk = r.koLineHeights.every((x) => x === '1.15');
+          check(
+            name,
+            `REQ-004 헤드라인 ${fx.id} ${w}px${zoom ? " 글자200%" : ""}: lang·줄바꿈·크기 유지·정지 버튼`,
+            r.size === baseSize && !r.overflow && langOk && koOk && t.ok && ov.length === 0,
+            `size ${r.size}/${baseSize} overflow ${r.overflow} langs ${r.langs} ko-lh ${r.koLineHeights} toggle ${t.ok} 겹침 ${ov.join(",")}`,
+          );
+        }
+        await ctx.close();
+      }
+    }
+
     for (const [w, h, zoom] of [[320, 568], [390, 844], [768, 1024], [1024, 768], [1440, 900], [1920, 1080], [844, 390], [667, 375], [320, 568, true], [1280, 800, true]]) {
       const { ctx, page } = await newPage({ viewport: { width: w, height: h } });
       await page.goto(u(), gotoOpts(name));
