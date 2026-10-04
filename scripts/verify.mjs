@@ -1003,7 +1003,30 @@ for (const name of selected) {
       await openMenu(page);
       await page.click('[data-menu] a[href$="#works"]');
       await page.waitForLoadState(name === 'webkit' ? 'domcontentloaded' : 'load');
-      check(name, 'REQ-006 메뉴: 상세에서 메인 #works로 이동', page.url().endsWith(`${BASE}#works`), page.url());
+      await page.waitForTimeout(800); // 앵커 처리 후(load 다음 프레임, 대비책 600ms) 초점 전달
+      const crossFocus = await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName);
+      check(name, 'REQ-006 메뉴(R1): 상세에서 메인 #works로 이동 + 목적지 제목 초점', page.url().endsWith(`${BASE}#works`) && crossFocus === 'works-title', `${page.url()} focus=${crossFocus}`);
+      // R1: 상세 → 메인 About·Contact도 새 문서에서 목적지 제목 초점
+      for (const [hash, id] of [['#about', 'about-title'], ['#contact', 'contact-title']]) {
+        await page.goto(u('projects/inventory-shop-ui/'), gotoOpts(name));
+        await openMenu(page);
+        await page.click(`[data-menu] a[href$="${hash}"]`);
+        await page.waitForLoadState(name === 'webkit' ? 'domcontentloaded' : 'load');
+        await page.waitForTimeout(800);
+        const fx = await page.evaluate(() => ({ id: document.activeElement?.id || document.activeElement?.tagName, hash: location.hash }));
+        check(name, `REQ-006 메뉴(R1): 상세 → 메인 ${hash} 목적지 제목 초점`, fx.hash === hash && fx.id === id, JSON.stringify(fx));
+      }
+      // R1 보존: 뒤로가기로 메인 #contact에 돌아오거나, 앵커 주소로 직접 들어오면 초점을 옮기지 않는다
+      // (캐시 복원 시 이전 초점이 되살아나는 것과 구분하려고 떠나기 전에 초점을 해제)
+      await page.evaluate(() => document.activeElement?.blur());
+      await page.goto(u('projects/rpg-hud-character-ui/'), gotoOpts(name));
+      await page.goBack(gotoOpts(name));
+      await page.waitForTimeout(300);
+      const bfFocus = await page.evaluate(() => ({ id: document.activeElement?.id || document.activeElement?.tagName, hash: location.hash }));
+      await page.goto(u() + '#about', gotoOpts(name));
+      await page.waitForTimeout(200);
+      const directFocus = await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName);
+      check(name, 'REQ-006 메뉴(R1): 뒤로가기·앵커 직접 진입에는 제목 초점 이동 없음', bfFocus.id !== 'contact-title' && directFocus !== 'about-title', JSON.stringify({ bfFocus, directFocus }));
       await ctx.close();
     }
 

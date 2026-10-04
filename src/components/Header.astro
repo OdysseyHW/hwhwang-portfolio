@@ -424,6 +424,43 @@ const showContact = !site.contactIsSample && (Boolean(site.email) || site.social
 </style>
 
 <script>
+  /** 앵커 목적지 영역의 제목(h2/h1)에 초점. 스크롤은 이미 이동했으므로 막는다 */
+  const focusHeading = (target: HTMLElement | null) => {
+    if (!target) return;
+    const heading = target.querySelector<HTMLElement>('h2, h1') ?? target;
+    if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+    heading.focus({ preventScroll: true });
+  };
+
+  // 다른 페이지(상세)의 메뉴에서 메인 앵커를 고른 경우: 새 문서에서 목적지 제목으로 초점을 넘겨받는다.
+  // 메뉴로 이동한 경우에만(세션에 남긴 표시가 현재 주소와 같을 때) — 앵커 직접 진입·뒤로가기에는 초점을 옮기지 않는다.
+  const FOCUS_KEY = 'hw-menu-focus';
+  try {
+    const want = sessionStorage.getItem(FOCUS_KEY);
+    if (want) {
+      sessionStorage.removeItem(FOCUS_KEY);
+      const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+      if (want === location.pathname + location.hash && nav?.type !== 'back_forward') {
+        // 브라우저는 DOM 준비 직후 주소의 앵커(#works)로 이동하면서 초점을 초기화한다.
+        // 그래서 앵커 처리가 끝난 뒤(load 다음 프레임)에 초점을 준다. load가 늦거나 오지 않는 환경을 위해 시간 기준 대비책도 둔다.
+        // 그 사이 사용자가 다른 곳에 초점을 옮겼다면 빼앗지 않는다.
+        const target = document.querySelector<HTMLElement>(location.hash);
+        let done = false;
+        const apply = () => {
+          if (done) return;
+          done = true;
+          const active = document.activeElement;
+          if (!active || active === document.body) focusHeading(target);
+        };
+        if (document.readyState === 'complete') requestAnimationFrame(apply);
+        else window.addEventListener('load', () => requestAnimationFrame(apply), { once: true });
+        window.setTimeout(apply, 600);
+      }
+    }
+  } catch {
+    /* 저장소를 쓸 수 없으면 초점 전달만 생략 (이동은 정상) */
+  }
+
   const header = document.querySelector<HTMLElement>('[data-site-header]');
   const toggle = document.querySelector<HTMLButtonElement>('[data-menu-toggle]');
   const dialog = document.querySelector<HTMLDialogElement>('[data-menu]');
@@ -523,7 +560,8 @@ const showContact = !site.contactIsSample && (Boolean(site.email) || site.social
       }
     });
 
-    // 메뉴 항목: 같은 페이지 앵커면 닫고 이동한 뒤 목적지 제목에 초점, 다른 페이지면 닫고 이동
+    // 메뉴 항목: 같은 페이지 앵커면 닫고 이동한 뒤 목적지 제목에 초점.
+    // 다른 페이지면 닫고 이동하며, 앵커가 있으면 새 문서가 목적지 제목에 초점을 주도록 표시를 남긴다.
     dialog.addEventListener('click', (e) => {
       const a = (e.target as Element).closest<HTMLAnchorElement>('a[data-menu-link]');
       if (!a) return;
@@ -536,10 +574,15 @@ const showContact = !site.contactIsSample && (Boolean(site.email) || site.social
         if (!target) return;
         history.pushState(null, '', url.hash);
         target.scrollIntoView({ behavior: reduce.matches ? 'auto' : 'smooth', block: 'start' });
-        const heading = target.querySelector<HTMLElement>('h2, h1') ?? target;
-        if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
-        heading.focus({ preventScroll: true });
+        focusHeading(target);
       } else {
+        if (url.hash) {
+          try {
+            sessionStorage.setItem(FOCUS_KEY, url.pathname + url.hash);
+          } catch {
+            /* 저장소 불가: 이동만 한다 */
+          }
+        }
         close({ restoreFocus: false, restoreScroll: false, immediate: true });
       }
     });
